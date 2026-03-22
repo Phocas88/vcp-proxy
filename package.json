@@ -1,0 +1,6 @@
+{
+  "name": "vcp-proxy",
+  "version": "1.0.0",
+  "description": "Veteran Career Path — Anthropic API Proxy",
+  "private": true
+}
