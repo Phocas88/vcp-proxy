@@ -5,9 +5,9 @@
 
 module.exports = async function handler(req, res) {
   // Set CORS headers on every response
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://veterancareerpath.com');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-vcb-session, x-vcb-email, x-vcb-code');
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
