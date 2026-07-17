@@ -19,6 +19,8 @@ Set these in **Vercel Dashboard > Settings > Environment Variables**:
 | `ANTHROPIC_API_KEY` | Yes | Anthropic API key (`sk-ant-...`) |
 | `ACCESS_CODES` | Yes | JSON map of access codes. `0` = permanent, timestamp = expiry in ms. Example: `{"OWNER2025":0,"OWNER2026":0,"TAP2026":1767139200000,"VSO2026":1767139200000}` |
 | `STRIPE_SECRET_KEY` | Yes | Stripe secret key (`sk_live_...` or `sk_test_...`) from https://dashboard.stripe.com/apikeys |
+| `PROXY_API_KEY` | Yes | Shared secret sent by the frontend as `x-proxy-key` header. Generate with `openssl rand -hex 32` |
+| `ONE_TIME_EXPIRY_DAYS` | No | Days of access granted for one-time Stripe payments (default: `365`) |
 
 ## Deploy
 
@@ -36,16 +38,19 @@ After deploying, add environment variables in Vercel Dashboard, then redeploy.
 # Test Claude proxy
 curl -X POST https://vcp-proxy.vercel.app/api/claude \
   -H "Content-Type: application/json" \
+  -H "x-proxy-key: YOUR_PROXY_API_KEY" \
   -d '{"model":"claude-haiku-4-5-20251001","max_tokens":100,"messages":[{"role":"user","content":"Say OK"}]}'
 
 # Test code validation
 curl -X POST https://vcp-proxy.vercel.app/api/validate-code \
   -H "Content-Type: application/json" \
+  -H "x-proxy-key: YOUR_PROXY_API_KEY" \
   -d '{"code":"TAP2026"}'
 
 # Test subscription verification
 curl -X POST https://vcp-proxy.vercel.app/api/verify-subscription \
   -H "Content-Type: application/json" \
+  -H "x-proxy-key: YOUR_PROXY_API_KEY" \
   -d '{"email":"test@example.com"}'
 ```
 
