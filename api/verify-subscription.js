@@ -1,12 +1,28 @@
-// Veteran Career Path — Stripe Subscription Verifier
-// Vercel Serverless Function — route: /api/verify-subscription
-// Required env vars: STRIPE_SECRET_KEY, PROXY_API_KEY
-// Optional env var: ONE_TIME_EXPIRY_DAYS (default: 365)
+// Veteran Career Path - Stripe entitlement verifier.
+// Route: /api/verify-subscription
+// Required env vars: STRIPE_SECRET_KEY, VCB_SESSION_SECRET
+// Optional env var: ONE_TIME_EXPIRY_DAYS (default 365)
 
-// ── Simple in-memory rate limiter (per serverless instance) ──
+const { issueSession } = require('./_lib/session');
+
 const rateLimit = new Map();
 const RATE_WINDOW_MS = 60_000;
-const RATE_MAX_REQUESTS = 15;
+const RATE_MAX_REQUESTS = 10;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STRIPE_ID_REGEX = /^(cs_(?:test_|live_)?|sub_|ch_)[A-Za-z0-9_]+$/;
+
+function setCors(req, res) {
+  const allowed = new Set([
+    'https://veterancareerpath.com',
+    'https://www.veterancareerpath.com',
+  ]);
+  const origin = req.headers.origin;
+  if (allowed.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'no-store');
+}
 
 function isRateLimited(ip) {
   const now = Date.now();
@@ -15,108 +31,264 @@ function isRateLimited(ip) {
     rateLimit.set(ip, { windowStart: now, count: 1 });
     return false;
   }
-  entry.count++;
-  if (entry.count > RATE_MAX_REQUESTS) return true;
-  return false;
+  entry.count += 1;
+  return entry.count > RATE_MAX_REQUESTS;
 }
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+async function stripeGet(path, stripeKey, signal) {
+  const response = await fetch(`https://api.stripe.com${path}`, {
+    headers: { Authorization: `Bearer ${stripeKey}` },
+    signal,
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = data?.error?.message || `Stripe request failed (${response.status})`;
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'https://veterancareerpath.com');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-proxy-key');
+function subscriptionExpiryMs(subscription) {
+  return Number(subscription?.current_period_end || 0) * 1000;
+}
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+function oneTimeExpiryMs(createdSeconds) {
+  const expiryDays = Math.max(
+    1,
+    Number.parseInt(process.env.ONE_TIME_EXPIRY_DAYS || '365', 10) || 365
+  );
+  return Number(createdSeconds || 0) * 1000 + expiryDays * 24 * 60 * 60 * 1000;
+}
 
-  // ── Authenticate proxy request ──
-  const proxyKey = process.env.PROXY_API_KEY;
-  if (proxyKey) {
-    const provided = req.headers['x-proxy-key'];
-    if (!provided || provided !== proxyKey) {
-      return res.status(401).json({ active: false, error: 'Unauthorized' });
+function issueStripeSession({ subject, plan, expiry, source }) {
+  const session = issueSession({
+    subject,
+    entitlement: `stripe:${plan}`,
+    entitlementExpiryMs: expiry,
+    metadata: { source },
+  });
+  return {
+    active: true,
+    sessionId: subject,
+    plan,
+    expiry,
+    token: session.token,
+    tokenExpiry: session.expiresAt,
+  };
+}
+
+function issueSubscriptionEntitlement(subscription, source, subjectOverride) {
+  const allowedStatus = new Set(['active', 'trialing']);
+  if (!subscription || !allowedStatus.has(subscription.status)) return { active: false };
+
+  const expiry = subscriptionExpiryMs(subscription);
+  if (expiry <= Date.now()) return { active: false };
+
+  return issueStripeSession({
+    subject: subjectOverride || subscription.id,
+    plan: subscription.items?.data?.[0]?.price?.recurring?.interval || 'monthly',
+    expiry,
+    source,
+  });
+}
+
+function issueChargeEntitlement(charge, source) {
+  if (!charge?.paid || charge.refunded || Number(charge.amount || 0) < 900) {
+    return { active: false };
+  }
+
+  const expiry = oneTimeExpiryMs(charge.created);
+  if (expiry <= Date.now()) return { active: false };
+
+  return issueStripeSession({
+    subject: charge.id,
+    plan: 'one-time',
+    expiry,
+    source,
+  });
+}
+
+async function verifyCheckoutSession(sessionId, stripeKey, signal) {
+  const checkout = await stripeGet(
+    `/v1/checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=subscription`,
+    stripeKey,
+    signal
+  );
+
+  if (checkout.status && checkout.status !== 'complete') {
+    return { active: false };
+  }
+
+  const subscription = checkout.subscription;
+  if (subscription && typeof subscription === 'object') {
+    return issueSubscriptionEntitlement(
+      subscription,
+      'checkout-subscription',
+      checkout.id
+    );
+  }
+
+  if (checkout.payment_status === 'paid') {
+    const expiry = oneTimeExpiryMs(checkout.created);
+    if (expiry <= Date.now()) return { active: false };
+
+    return issueStripeSession({
+      subject: checkout.id,
+      plan: 'one-time',
+      expiry,
+      source: 'checkout-payment',
+    });
+  }
+
+  return { active: false };
+}
+
+async function verifySubscriptionId(subscriptionId, stripeKey, signal) {
+  const subscription = await stripeGet(
+    `/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+    stripeKey,
+    signal
+  );
+  return issueSubscriptionEntitlement(subscription, 'stored-subscription');
+}
+
+async function verifyChargeId(chargeId, stripeKey, signal) {
+  const charge = await stripeGet(
+    `/v1/charges/${encodeURIComponent(chargeId)}`,
+    stripeKey,
+    signal
+  );
+  return issueChargeEntitlement(charge, 'stored-payment');
+}
+
+async function verifyStripeIdentifier(stripeId, stripeKey, signal) {
+  if (stripeId.startsWith('cs_')) {
+    return verifyCheckoutSession(stripeId, stripeKey, signal);
+  }
+  if (stripeId.startsWith('sub_')) {
+    return verifySubscriptionId(stripeId, stripeKey, signal);
+  }
+  if (stripeId.startsWith('ch_')) {
+    return verifyChargeId(stripeId, stripeKey, signal);
+  }
+  return { active: false };
+}
+
+async function verifyEmail(email, stripeKey, signal) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const customers = await stripeGet(
+    `/v1/customers?email=${encodeURIComponent(normalizedEmail)}&limit=10`,
+    stripeKey,
+    signal
+  );
+
+  if (!Array.isArray(customers.data) || customers.data.length === 0) {
+    return { active: false };
+  }
+
+  for (const customer of customers.data) {
+    const subscriptions = await stripeGet(
+      `/v1/subscriptions?customer=${encodeURIComponent(customer.id)}&status=all&limit=10`,
+      stripeKey,
+      signal
+    );
+
+    const activeSub = subscriptions.data?.find(
+      sub => (sub.status === 'active' || sub.status === 'trialing') &&
+        subscriptionExpiryMs(sub) > Date.now()
+    );
+
+    if (activeSub) {
+      return issueSubscriptionEntitlement(activeSub, 'email-subscription');
+    }
+
+    const charges = await stripeGet(
+      `/v1/charges?customer=${encodeURIComponent(customer.id)}&limit=20`,
+      stripeKey,
+      signal
+    );
+
+    const paid = charges.data?.find(
+      charge => charge.paid && !charge.refunded && Number(charge.amount || 0) >= 900
+    );
+
+    if (paid) {
+      const result = issueChargeEntitlement(paid, 'email-payment');
+      if (result.active) return result;
     }
   }
 
-  // ── Rate limiting ──
+  return { active: false };
+}
+
+module.exports = async function handler(req, res) {
+  setCors(req, res);
+
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') {
+    return res.status(405).json({ active: false, error: 'Method not allowed' });
+  }
+
   const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
   if (isRateLimited(clientIp)) {
     return res.status(429).json({ active: false, error: 'Too many requests' });
   }
 
-  const { email } = req.body || {};
-  if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email)) {
-    return res.status(400).json({ active: false, error: 'Invalid email' });
-  }
-
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeKey) {
-    console.error('STRIPE_SECRET_KEY not configured');
+    console.error('[verify-subscription] STRIPE_SECRET_KEY is not configured');
     return res.status(500).json({ active: false, error: 'Server configuration error' });
   }
 
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId.trim() : '';
+
+  if (!email && !sessionId) {
+    return res.status(400).json({ active: false, error: 'Email or sessionId is required' });
+  }
+  if (email && !EMAIL_REGEX.test(email)) {
+    return res.status(400).json({ active: false, error: 'Invalid email' });
+  }
+  if (sessionId && !STRIPE_ID_REGEX.test(sessionId)) {
+    return res.status(400).json({ active: false, error: 'Invalid Stripe identifier' });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8_000);
+    let result = { active: false };
 
-    // Search for customer by email
-    const custResp = await fetch(
-      `https://api.stripe.com/v1/customers?email=${encodeURIComponent(email.trim().toLowerCase())}&limit=1`,
-      { headers: { 'Authorization': `Bearer ${stripeKey}` }, signal: controller.signal }
-    );
-    const custData = await custResp.json();
-
-    if (!custData.data || custData.data.length === 0) {
-      clearTimeout(timeout);
-      return res.status(200).json({ active: false });
+    if (sessionId) {
+      result = await verifyStripeIdentifier(sessionId, stripeKey, controller.signal);
     }
 
-    const customerId = custData.data[0].id;
-
-    // Check active subscriptions
-    const subResp = await fetch(
-      `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=active&limit=1`,
-      { headers: { 'Authorization': `Bearer ${stripeKey}` }, signal: controller.signal }
-    );
-    const subData = await subResp.json();
-
-    if (subData.data && subData.data.length > 0) {
-      clearTimeout(timeout);
-      const sub = subData.data[0];
-      return res.status(200).json({
-        active: true,
-        sessionId: sub.id,
-        plan: sub.items.data[0]?.price?.recurring?.interval || 'monthly',
-        expiry: sub.current_period_end * 1000,
-      });
+    // Preserve existing customers whose stored access record has an old Stripe id
+    // by falling back to email when the identifier no longer resolves as active.
+    if (!result.active && email) {
+      result = await verifyEmail(email, stripeKey, controller.signal);
     }
 
-    // Check successful one-time payments
-    const chargeResp = await fetch(
-      `https://api.stripe.com/v1/charges?customer=${customerId}&limit=5`,
-      { headers: { 'Authorization': `Bearer ${stripeKey}` }, signal: controller.signal }
-    );
-    const chargeData = await chargeResp.json();
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('[verify-subscription] Stripe verification failed:', error);
 
+    if (error.status === 404 && email) {
+      try {
+        const fallback = await verifyEmail(email, stripeKey, controller.signal);
+        return res.status(200).json(fallback);
+      } catch (fallbackError) {
+        console.error('[verify-subscription] Email fallback failed:', fallbackError);
+      }
+    }
+
+    return res.status(error.status === 404 ? 200 : 500).json({
+      active: false,
+      error: error.status === 404 ? undefined : 'Verification failed',
+    });
+  } finally {
     clearTimeout(timeout);
-
-    const paid = chargeData.data?.find(c => c.paid && !c.refunded && c.amount >= 900);
-    if (paid) {
-      const expiryDays = parseInt(process.env.ONE_TIME_EXPIRY_DAYS || '365', 10);
-      // Calculate expiry from payment date, not from now
-      const paymentDate = paid.created * 1000;
-      return res.status(200).json({
-        active: true,
-        sessionId: paid.id,
-        plan: 'one-time',
-        expiry: paymentDate + expiryDays * 24 * 60 * 60 * 1000,
-      });
-    }
-
-    return res.status(200).json({ active: false });
-  } catch (e) {
-    console.error('Stripe verification error:', e);
-    return res.status(500).json({ active: false, error: 'Verification failed' });
   }
 };
