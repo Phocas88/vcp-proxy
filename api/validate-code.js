@@ -1,11 +1,26 @@
-// Veteran Career Path — Access Code Validator
-// Vercel Serverless Function — route: /api/validate-code
-// Required env vars: ACCESS_CODES (JSON string), PROXY_API_KEY
+// Veteran Career Path - server-side access-code validator.
+// Route: /api/validate-code
+// Required env vars: ACCESS_CODES, VCB_SESSION_SECRET
 
-// ── Simple in-memory rate limiter (per serverless instance) ──
+const { issueSession } = require('./_lib/session');
+
 const rateLimit = new Map();
 const RATE_WINDOW_MS = 60_000;
-const RATE_MAX_REQUESTS = 20;
+const RATE_MAX_REQUESTS = 10;
+const CODE_REGEX = /^[A-Z0-9_-]{4,50}$/;
+
+function setCors(req, res) {
+  const allowed = new Set([
+    'https://veterancareerpath.com',
+    'https://www.veterancareerpath.com',
+  ]);
+  const origin = req.headers.origin;
+  if (allowed.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 'no-store');
+}
 
 function isRateLimited(ip) {
   const now = Date.now();
@@ -14,64 +29,69 @@ function isRateLimited(ip) {
     rateLimit.set(ip, { windowStart: now, count: 1 });
     return false;
   }
-  entry.count++;
-  if (entry.count > RATE_MAX_REQUESTS) return true;
-  return false;
+  entry.count += 1;
+  return entry.count > RATE_MAX_REQUESTS;
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'https://veterancareerpath.com');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-proxy-key');
+  setCors(req, res);
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  // ── Authenticate proxy request ──
-  const proxyKey = process.env.PROXY_API_KEY;
-  if (proxyKey) {
-    const provided = req.headers['x-proxy-key'];
-    if (!provided || provided !== proxyKey) {
-      return res.status(401).json({ valid: false, reason: 'unauthorized' });
-    }
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') {
+    return res.status(405).json({ valid: false, reason: 'method_not_allowed' });
   }
 
-  // ── Rate limiting ──
   const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
   if (isRateLimited(clientIp)) {
     return res.status(429).json({ valid: false, reason: 'rate_limited' });
   }
 
-  const { code } = req.body || {};
-  if (!code || typeof code !== 'string' || code.length > 50) {
+  const rawCode = req.body?.code;
+  const code = typeof rawCode === 'string' ? rawCode.trim().toUpperCase() : '';
+
+  if (!CODE_REGEX.test(code)) {
     return res.status(400).json({ valid: false, reason: 'invalid' });
   }
 
-  const c = code.trim().toUpperCase();
-
-  if (!process.env.ACCESS_CODES) {
-    console.error('ACCESS_CODES env var not configured');
-    return res.status(500).json({ valid: false, reason: 'error' });
+  const rawCodes = process.env.ACCESS_CODES;
+  if (!rawCodes) {
+    console.error('[validate-code] ACCESS_CODES is not configured');
+    return res.status(500).json({ valid: false, reason: 'configuration_error' });
   }
 
-  let codesMap = {};
+  let codesMap;
   try {
-    codesMap = JSON.parse(process.env.ACCESS_CODES);
-  } catch (e) {
-    console.error('Failed to parse ACCESS_CODES:', e);
-    return res.status(500).json({ valid: false, reason: 'error' });
+    codesMap = JSON.parse(rawCodes);
+  } catch (error) {
+    console.error('[validate-code] ACCESS_CODES is invalid JSON:', error);
+    return res.status(500).json({ valid: false, reason: 'configuration_error' });
   }
 
-  if (!(c in codesMap)) {
+  if (!Object.prototype.hasOwnProperty.call(codesMap, code)) {
     return res.status(200).json({ valid: false, reason: 'invalid' });
   }
 
-  const expiry = codesMap[c];
-  if (expiry === 0) {
-    return res.status(200).json({ valid: true, reason: 'permanent' });
-  }
-  if (Date.now() > expiry) {
+  const entitlementExpiry = Number(codesMap[code]) || 0;
+  if (entitlementExpiry > 0 && Date.now() > entitlementExpiry) {
     return res.status(200).json({ valid: false, reason: 'expired' });
   }
-  return res.status(200).json({ valid: true, reason: 'timed', expiry });
+
+  try {
+    const session = issueSession({
+      subject: `code:${code.slice(0, 8)}`,
+      entitlement: 'access-code',
+      entitlementExpiryMs: entitlementExpiry,
+    });
+
+    return res.status(200).json({
+      valid: true,
+      reason: entitlementExpiry === 0 ? 'permanent' : 'timed',
+      expiry: entitlementExpiry,
+      token: session.token,
+      tokenExpiry: session.expiresAt,
+    });
+  } catch (error) {
+    console.error('[validate-code] Could not issue session:', error);
+    return res.status(500).json({ valid: false, reason: 'configuration_error' });
+  }
 };
