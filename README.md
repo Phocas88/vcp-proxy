@@ -1,31 +1,33 @@
-# VCP Proxy — Veteran Career Path API Proxy
+# VCP Proxy - Veteran Career Path API Proxy
 
-Vercel serverless proxy for Veteran Career Path AI tools and payment verification.
+Vercel serverless proxy for Veteran Career Path AI tools, access-code validation, and Stripe entitlement verification.
 
 ## Endpoints
 
 | Route | Purpose |
 |-------|---------|
-| `POST /api/claude` | Proxy requests to Anthropic Claude API |
-| `POST /api/validate-code` | Validate access codes server-side |
-| `POST /api/verify-subscription` | Verify Stripe subscriptions by email |
+| `POST /api/claude` | Proxy requests to Anthropic Claude API. Requires a valid server-issued bearer session. |
+| `POST /api/validate-code` | Validate access codes server-side and issue signed entitlement sessions. |
+| `POST /api/verify-subscription` | Verify Stripe identifiers or subscriptions server-side and issue signed entitlement sessions. |
 
 ## Environment Variables
 
-Set these in **Vercel Dashboard > Settings > Environment Variables**:
+Set these in Vercel Dashboard > Settings > Environment Variables:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Anthropic API key (`sk-ant-...`) |
-| `ACCESS_CODES` | Yes | JSON map of access codes. `0` = permanent, timestamp = expiry in ms. Example: `{"OWNER2025":0,"OWNER2026":0,"TAP2026":1767139200000,"VSO2026":1767139200000}` |
-| `STRIPE_SECRET_KEY` | Yes | Stripe secret key (`sk_live_...` or `sk_test_...`) from https://dashboard.stripe.com/apikeys |
-| `PROXY_API_KEY` | Yes | Shared secret sent by the frontend as `x-proxy-key` header. Generate with `openssl rand -hex 32` |
-| `ONE_TIME_EXPIRY_DAYS` | No | Days of access granted for one-time Stripe payments (default: `365`) |
+| `ANTHROPIC_API_KEY` | Yes | Anthropic API key. Store only in Vercel environment variables. |
+| `VCB_SESSION_SECRET` | Yes | At least 32 characters. Used to sign entitlement sessions for AI access. |
+| `ACCESS_CODES` | Yes | JSON map of access codes. `0` means permanent access, timestamp means expiry in milliseconds. Example shape: `{"PARTNER_CODE":0,"TEMP_CODE":1767139200000}` |
+| `STRIPE_SECRET_KEY` | Yes | Stripe secret key from https://dashboard.stripe.com/apikeys. |
+| `ONE_TIME_EXPIRY_DAYS` | No | Days of access granted for one-time Stripe payments. Default: `365`. |
+
+The service fails closed if required security configuration is missing.
 
 ## Deploy
 
 ```bash
-npm install -g vercel   # first time only
+npm install -g vercel
 cd vcp-proxy
 vercel --prod
 ```
@@ -35,31 +37,31 @@ After deploying, add environment variables in Vercel Dashboard, then redeploy.
 ## Test
 
 ```bash
-# Test Claude proxy
-curl -X POST https://vcp-proxy.vercel.app/api/claude \
-  -H "Content-Type: application/json" \
-  -H "x-proxy-key: YOUR_PROXY_API_KEY" \
-  -d '{"model":"claude-haiku-4-5-20251001","max_tokens":100,"messages":[{"role":"user","content":"Say OK"}]}'
-
-# Test code validation
+# Validate an access code and capture the returned token.
 curl -X POST https://vcp-proxy.vercel.app/api/validate-code \
   -H "Content-Type: application/json" \
-  -H "x-proxy-key: YOUR_PROXY_API_KEY" \
-  -d '{"code":"TAP2026"}'
+  -d '{"code":"PARTNER_CODE"}'
 
-# Test subscription verification
+# Verify a Stripe Checkout Session, subscription, or charge identifier and capture the returned token.
 curl -X POST https://vcp-proxy.vercel.app/api/verify-subscription \
   -H "Content-Type: application/json" \
-  -H "x-proxy-key: YOUR_PROXY_API_KEY" \
-  -d '{"email":"test@example.com"}'
+  -d '{"sessionId":"cs_test_or_live_checkout_session"}'
+
+# Call Claude only with a server-issued entitlement token.
+curl -X POST https://vcp-proxy.vercel.app/api/claude \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SERVER_ISSUED_TOKEN" \
+  -d '{"model":"claude-haiku-4-5-20251001","max_tokens":100,"messages":[{"role":"user","content":"Say OK"}]}'
 ```
 
-## Set the proxy URL in app.html
+## Frontend Configuration
 
 ```html
-<script>window.VCB_PROXY_URL="https://vcp-proxy.vercel.app/api/claude";</script>
+<script>window.VCB_PROXY_URL="https://vcp-proxy.vercel.app";</script>
 ```
+
+Do not expose Anthropic keys, Stripe secrets, signing secrets, or access-code lists in browser JavaScript.
 
 ## CORS
 
-All endpoints restrict CORS to `https://veterancareerpath.com` only.
+All endpoints restrict CORS to approved Veteran Career Path origins.
