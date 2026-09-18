@@ -11,6 +11,10 @@
     "api/verify-subscription.js": {
       "memory": 128,
       "maxDuration": 10
+    },
+    "api/usajobs.js": {
+      "memory": 128,
+      "maxDuration": 15
     }
   }
 }
