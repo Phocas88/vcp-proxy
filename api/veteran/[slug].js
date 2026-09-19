@@ -191,7 +191,8 @@ module.exports = async function handler(req, res) {
   body += '<section class="card" style="text-align:center"><a href="' + SITE + '/app.html" style="font-weight:700">Build your own veteran profile →</a></section>';
   body += '</main>' + footer();
 
-  res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600');
+  // Short edge cache so unpublish / edits take effect within ~a minute (privacy).
+  res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=30');
   const out = page(200, head, body);
   return res.status(200).send(out.html);
 };
