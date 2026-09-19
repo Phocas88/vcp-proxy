@@ -223,6 +223,13 @@ async function verifyEmail(email, stripeKey, signal) {
   return { active: false };
 }
 
+// Founder/admin allowlist — these emails always get full access, independent of
+// Stripe state (comped, sub changes, env drift). Override/extend via OWNER_EMAILS.
+const OWNER_EMAILS = new Set(
+  (process.env.OWNER_EMAILS || 'mendozaarmytransition@gmail.com')
+    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+);
+
 module.exports = async function handler(req, res) {
   setCors(req, res);
 
@@ -253,6 +260,16 @@ module.exports = async function handler(req, res) {
   }
   if (sessionId && !STRIPE_ID_REGEX.test(sessionId)) {
     return res.status(400).json({ active: false, error: 'Invalid Stripe identifier' });
+  }
+
+  // Founder/admin comp access — full entitlement without a Stripe lookup.
+  if (email && OWNER_EMAILS.has(email.toLowerCase())) {
+    const expiry = Date.now() + 365 * 24 * 60 * 60 * 1000;
+    // Subject must look like a Stripe id so the client's format guards accept it.
+    const ownerSubject = 'sub_owner' + email.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return res.status(200).json(
+      issueStripeSession({ subject: ownerSubject, plan: 'owner', expiry, source: 'owner-allowlist' })
+    );
   }
 
   const controller = new AbortController();
