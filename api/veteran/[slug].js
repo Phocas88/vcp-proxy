@@ -47,7 +47,7 @@ function ymRange(e) {
 }
 function bullets(arr) {
   if (!Array.isArray(arr) || !arr.length) return '';
-  return '<ul>' + arr.map((b) => '<li>' + esc(b) + '</li>').join('') + '</ul>';
+  return '<ul>' + arr.map((b) => '<li>' + esc(String(b).replace(/^[•▪◦\-\*\s]+/, '')) + '</li>').join('') + '</ul>';
 }
 function initials(name) {
   return (String(name || 'V').trim().split(/\s+/).map((w) => w[0]).join('') || 'V')
