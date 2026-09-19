@@ -49,9 +49,10 @@ function bullets(arr) {
   if (!Array.isArray(arr) || !arr.length) return '';
   return '<ul>' + arr.map((b) => '<li>' + esc(String(b).replace(/^[•▪◦\-\*\s]+/, '')) + '</li>').join('') + '</ul>';
 }
-function initials(name) {
-  return (String(name || 'V').trim().split(/\s+/).map((w) => w[0]).join('') || 'V')
-    .toUpperCase().slice(0, 2);
+const EMBLEMS = { 'army': 'army', 'navy': 'navy', 'air force': 'airforce', 'marine corps': 'marines', 'marines': 'marines', 'coast guard': 'coastguard', 'space force': 'spaceforce' };
+function emblemUrl(branch) {
+  const f = EMBLEMS[String(branch || '').toLowerCase().trim()];
+  return SITE + '/img/optimized/' + (f || 'logo-192') + '.webp';
 }
 function expBlock(title, org, dates, bl) {
   return '<div class="exp">' +
@@ -77,9 +78,7 @@ function styleTag() {
     '.hero{position:relative;overflow:hidden;text-align:center;padding:3.2rem 1.2rem 3.4rem;color:#fff;' +
       'background:radial-gradient(1200px 400px at 50% -10%,#1c3f74,transparent),linear-gradient(135deg,#0a1628,#12294d)}' +
     '.hero:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,#f0c040,#e0a92e)}' +
-    '.avatar{width:96px;height:96px;border-radius:50%;margin:0 auto .9rem;display:flex;align-items:center;justify-content:center;' +
-      'font-family:"Bebas Neue",sans-serif;font-size:2.4rem;letter-spacing:.05em;color:#0a1628;' +
-      'background:linear-gradient(135deg,#f4cf6a,#e0a92e);border:3px solid rgba(255,255,255,.25);box-shadow:0 8px 24px rgba(0,0,0,.35)}' +
+    '.emblem{width:92px;height:92px;object-fit:contain;display:block;margin:0 auto .9rem;filter:drop-shadow(0 6px 16px rgba(0,0,0,.45))}' +
     '.hero h1{font-family:"Bebas Neue",sans-serif;font-size:2.7rem;line-height:1.05;letter-spacing:.03em;margin:0 0 .25rem}' +
     '.headline{color:#f4cf6a;font-weight:600;font-size:1.08rem}' +
     '.loc{color:#c2d2ec;font-size:.9rem;margin-top:.45rem}' +
@@ -178,7 +177,7 @@ module.exports = async function handler(req, res) {
     '<meta name="twitter:image" content="' + attr(p.photo || DEFAULT_OG_IMAGE) + '">';
 
   let body = '<div class="hero">' +
-    '<div class="avatar">' + esc(initials(name)) + '</div>' +
+    '<img class="emblem" src="' + attr(emblemUrl(branch)) + '" alt="' + attr(branch || 'U.S. Military') + ' emblem" loading="eager">' +
     '<h1>' + esc(name) + '</h1>' +
     '<div class="headline">' + esc(headline) + '</div>' +
     (p.location ? '<div class="loc">📍 ' + esc(p.location) + '</div>' : '') +
