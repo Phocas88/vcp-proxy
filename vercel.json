@@ -15,6 +15,13 @@
     "api/usajobs.js": {
       "memory": 128,
       "maxDuration": 15
+    },
+    "api/veteran/[slug].js": {
+      "memory": 128,
+      "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/veteran/:slug", "destination": "/api/veteran/:slug" }
+  ]
 }
