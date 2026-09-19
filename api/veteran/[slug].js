@@ -11,7 +11,7 @@
 const PROJECT = 'veteran-career-builder';
 const API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyDEh2Aivj4q8hVITI60fLZz8uCyP6UV7Os'; // public/embeddable
 const SITE = 'https://veterancareerpath.com';
-const DEFAULT_OG_IMAGE = SITE + '/img/optimized/logo.webp';
+const DEFAULT_OG_IMAGE = SITE + '/img/optimized/logo-192.webp';
 
 // ── Firestore REST value decoding ──
 function decode(v) {
