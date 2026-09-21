@@ -103,6 +103,7 @@ module.exports = async function handler(req, res) {
   }
 
   const q = req.query || {};
+  const resource = clean(q.resource, 20);
   let path;
   if (q.raw) {
     // Iteration/testing passthrough: exact v1 path with a {uid} placeholder. Restricted to
@@ -117,7 +118,6 @@ module.exports = async function handler(req, res) {
     }
     path = p.replace(/\{uid\}/g, uid);
   } else {
-    const resource = clean(q.resource, 20);
     path = buildPath(resource, q, uid);
   }
   if (!path) return res.status(400).json({ error: 'bad_request', hint: 'unknown resource or missing/invalid params' });
