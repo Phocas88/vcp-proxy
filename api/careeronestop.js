@@ -103,8 +103,20 @@ module.exports = async function handler(req, res) {
   }
 
   const q = req.query || {};
-  const resource = clean(q.resource, 20);
-  const path = buildPath(resource, q, uid);
+  let path;
+  if (q.raw) {
+    // Iteration/testing passthrough: exact v1 path with a {uid} placeholder. Restricted to
+    // CareerOneStop's finder resources; no traversal; limited charset.
+    let p = decodeURIComponent(String(q.raw));
+    if (!/^\/v1\/(occupation|certificationfinder|license|trainingfinder|comparesalaries)\//.test(p) ||
+        /\.\./.test(p) || !/^[A-Za-z0-9 %._/,{}'&()+?=:-]+$/.test(p)) {
+      return res.status(400).json({ error: 'bad_raw_path' });
+    }
+    path = p.replace(/\{uid\}/g, uid);
+  } else {
+    const resource = clean(q.resource, 20);
+    path = buildPath(resource, q, uid);
+  }
   if (!path) return res.status(400).json({ error: 'bad_request', hint: 'unknown resource or missing/invalid params' });
 
   const url = 'https://api.careeronestop.org' + path;
