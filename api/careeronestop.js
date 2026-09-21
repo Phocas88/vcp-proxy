@@ -134,14 +134,17 @@ module.exports = async function handler(req, res) {
     clearTimeout(timer);
 
     if (upstream.status === 204) return res.status(200).json({ resource, data: null });
+    const text = await upstream.text();
     if (!upstream.ok) {
       console.error('[careeronestop] upstream error', resource, upstream.status);
-      return res.status(502).json({ error: 'upstream_error', status: upstream.status });
+      return res.status(502).json({ error: 'upstream_error', status: upstream.status, body: text.slice(0, 200) });
     }
-    const data = await upstream.json();
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { return res.status(502).json({ error: 'bad_json', status: upstream.status, body: text.slice(0, 200) }); }
     return res.status(200).json({ resource, data });
   } catch (err) {
     console.error('[careeronestop] fetch failed', err && err.message);
-    return res.status(504).json({ error: 'fetch_failed' });
+    return res.status(504).json({ error: 'fetch_failed', detail: (err && err.message || '').slice(0, 160) });
   }
 };
