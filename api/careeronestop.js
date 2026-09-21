@@ -107,10 +107,13 @@ module.exports = async function handler(req, res) {
   if (q.raw) {
     // Iteration/testing passthrough: exact v1 path with a {uid} placeholder. Restricted to
     // CareerOneStop's finder resources; no traversal; limited charset.
-    let p = decodeURIComponent(String(q.raw));
-    if (!/^\/v1\/(occupation|certificationfinder|license|trainingfinder|comparesalaries)\//.test(p) ||
-        /\.\./.test(p) || !/^[A-Za-z0-9 %._/,{}'&()+?=:-]+$/.test(p)) {
-      return res.status(400).json({ error: 'bad_raw_path' });
+    let p = String(q.raw);
+    try { p = decodeURIComponent(p); } catch (e) {}
+    const c1 = /^\/v1\/(occupation|certificationfinder|license|trainingfinder|comparesalaries)\//.test(p);
+    const c2 = /\.\./.test(p);
+    const c3 = /^[A-Za-z0-9 %._/,{}'&()+?=:-]+$/.test(p);
+    if (!c1 || c2 || !c3) {
+      return res.status(400).json({ error: 'bad_raw_path', got: p.slice(0, 160), starts_ok: c1, has_dotdot: c2, charset_ok: c3 });
     }
     path = p.replace(/\{uid\}/g, uid);
   } else {
