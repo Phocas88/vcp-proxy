@@ -18,7 +18,7 @@
     },
     "api/careeronestop.js": {
       "memory": 128,
-      "maxDuration": 15
+      "maxDuration": 30
     },
     "api/veteran/[slug].js": {
       "memory": 128,
@@ -26,6 +26,9 @@
     }
   },
   "rewrites": [
-    { "source": "/veteran/:slug", "destination": "/api/veteran/:slug" }
+    {
+      "source": "/veteran/:slug",
+      "destination": "/api/veteran/:slug"
+    }
   ]
 }

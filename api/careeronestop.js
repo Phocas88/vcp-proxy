@@ -126,7 +126,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12_000);
+    const timer = setTimeout(() => controller.abort(), 28_000);
     const upstream = await fetch(url, {
       headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
       signal: controller.signal,
