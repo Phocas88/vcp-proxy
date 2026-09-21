@@ -16,6 +16,10 @@
       "memory": 128,
       "maxDuration": 15
     },
+    "api/careeronestop.js": {
+      "memory": 128,
+      "maxDuration": 15
+    },
     "api/veteran/[slug].js": {
       "memory": 128,
       "maxDuration": 10
