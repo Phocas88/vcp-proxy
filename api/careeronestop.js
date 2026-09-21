@@ -97,7 +97,9 @@ module.exports = async function handler(req, res) {
   const token = process.env.CAREERONESTOP_TOKEN;
   if (!uid || !token) {
     console.error('[careeronestop] CAREERONESTOP_USER_ID / CAREERONESTOP_TOKEN not configured');
-    return res.status(500).json({ error: 'configuration_error' });
+    // Presence-only diagnostic (never leaks values) so we can tell a naming/scope issue
+    // apart from a missing redeploy.
+    return res.status(500).json({ error: 'configuration_error', have_user_id: !!uid, have_token: !!token });
   }
 
   const q = req.query || {};
