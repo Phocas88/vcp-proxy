@@ -16,7 +16,7 @@
 
 const rateLimit = new Map();
 const RATE_WINDOW_MS = 60_000;
-const RATE_MAX_REQUESTS = 30;
+const RATE_MAX_REQUESTS = 120;
 
 function setCors(req, res) {
   const allowed = new Set([
@@ -66,7 +66,7 @@ function buildPath(resource, q, uid) {
       // Certification Finder by keyword (occupation title). Top 10, sorted by best match.
       if (!kw) return null;
       // path: /v1/certificationfinder/{userId}/{keyword}/{sort}/{dir}/{start}/{limit}/{filters...}
-      return `/v1/certificationfinder/${uid}/${enc(kw)}/0/0/0/10/0/0/0/0`;
+      return `/v1/certificationfinder/${uid}/${enc(kw)}/0/0/0/10/0/0/0/0/0/0`;
     }
     case 'license': {
       // License Finder by keyword (occupation title) + state.
