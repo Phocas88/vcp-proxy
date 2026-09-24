@@ -1,7 +1,7 @@
 // Veteran Career Path - $1 pay-per-use Checkout Session for the Military Resume & Career tool.
 // Route: /api/resume-checkout   (public; creates a one-time $1 Stripe Checkout Session)
 // The $1 price is created inline (price_data) so no dashboard Price/Product is required.
-// Required env vars: STRIPE_SECRET_KEY
+// Required env vars: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET_RESUME
 // Optional env vars: RESUME_PRICE_CENTS (default 100), RESUME_SUCCESS_URL, RESUME_CANCEL_URL
 const { stripePost } = require('./_lib/stripe');
 
@@ -33,7 +33,11 @@ module.exports = async function handler(req, res) {
   if (isRateLimited(ip)) return res.status(429).json({ error: 'rate_limited' });
 
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) { console.error('[resume-checkout] STRIPE_SECRET_KEY not configured'); return res.status(500).json({ error: 'configuration_error' }); }
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_RESUME;
+  if (!key || !webhookSecret) {
+    console.error('[resume-checkout] Stripe key or resume webhook secret not configured');
+    return res.status(500).json({ error: 'configuration_error' });
+  }
 
   // draft = a client-generated id that binds this payment to one specific report intake.
   const draft = String(req.body?.draft || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
