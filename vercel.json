@@ -32,6 +32,14 @@
       "memory": 128,
       "maxDuration": 10
     },
+    "api/store-checkout.js": {
+      "memory": 128,
+      "maxDuration": 15
+    },
+    "api/store-download.js": {
+      "memory": 256,
+      "maxDuration": 20
+    },
     "api/resume-generate.js": {
       "memory": 256,
       "maxDuration": 60

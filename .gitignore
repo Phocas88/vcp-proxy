@@ -16,3 +16,11 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Vercel local link
+.vercel/
+.env*.local
+
+# Store blob URL map - PUBLIC repo, so the download URLs must not be committed.
+# In production this map is provided via the STORE_BLOBS env var instead.
+data/store-blobs.json
