@@ -57,6 +57,7 @@ module.exports = async function handler(req, res) {
     const session = await stripePost('/v1/checkout/sessions', {
       mode: 'payment',
       client_reference_id: sku,
+      allow_promotion_codes: true,
       metadata: { product: 'book', sku },
       payment_intent_data: { metadata: { product: 'book', sku } },
       line_items: [{
