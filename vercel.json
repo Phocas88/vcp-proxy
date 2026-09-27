@@ -47,7 +47,18 @@
     "api/veteran/[slug].js": {
       "memory": 128,
       "maxDuration": 10
-    }
+    },
+    "api/review-invite.js": { "memory": 256, "maxDuration": 10 },
+    "api/review-invite-validate.js": { "memory": 256, "maxDuration": 10 },
+    "api/review-submit.js": { "memory": 256, "maxDuration": 15 },
+    "api/review-upload.js": { "memory": 512, "maxDuration": 30 },
+    "api/review-checkout.js": { "memory": 256, "maxDuration": 15 },
+    "api/review-webhook.js": { "memory": 256, "maxDuration": 10 },
+    "api/review-file.js": { "memory": 512, "maxDuration": 20 },
+    "api/review-extract.js": { "memory": 1024, "maxDuration": 30 },
+    "api/review-jobs.js": { "memory": 256, "maxDuration": 15 },
+    "api/review-job.js": { "memory": 256, "maxDuration": 15 },
+    "api/review-ai.js": { "memory": 512, "maxDuration": 60 }
   },
   "rewrites": [
     {
