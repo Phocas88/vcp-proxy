@@ -4,10 +4,10 @@
 // atomically via a jobId claim on the invite document.
 // Required env: FIREBASE_SERVICE_ACCOUNT_JSON
 'use strict';
-const { getDb, FieldValue } = require('./_lib/firebase-admin');
+const { getDb, FieldValue } = require('../firebase-admin');
 const {
   setCors, normStr, normEmail, pick, clientIp, rateLimiter, loadInviteByToken, newId, SERVICE_TYPE,
-} = require('./_lib/review-common');
+} = require('../review-common');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 10 });
 const SERVICE_STATUS = ['Active Duty', 'Veteran', 'National Guard', 'Reserve'];

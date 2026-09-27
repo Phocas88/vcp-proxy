@@ -5,10 +5,10 @@
 // is ever sent to the client automatically — output loads into the reviewer's editable fields.
 // Required env: FIREBASE_SERVICE_ACCOUNT_JSON, ANTHROPIC_API_KEY. Optional: ANTHROPIC_ALLOWED_MODELS.
 'use strict';
-const { requireAdmin } = require('./_lib/admin-auth');
-const { getDb, FieldValue } = require('./_lib/firebase-admin');
-const { setCors, normStr, rateLimiter, newId } = require('./_lib/review-common');
-const { callAnthropic, extractText, resolveModel, DEFAULT_MODEL } = require('./_lib/anthropic');
+const { requireAdmin } = require('../admin-auth');
+const { getDb, FieldValue } = require('../firebase-admin');
+const { setCors, normStr, rateLimiter, newId } = require('../review-common');
+const { callAnthropic, extractText, resolveModel, DEFAULT_MODEL } = require('../anthropic');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 30 });
 const PROMPT_VERSION = 'rr-v1';

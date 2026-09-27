@@ -1,69 +1,34 @@
 {
   "functions": {
-    "api/claude.js": {
-      "memory": 256,
-      "maxDuration": 30
-    },
-    "api/validate-code.js": {
-      "memory": 128,
-      "maxDuration": 5
-    },
-    "api/verify-subscription.js": {
-      "memory": 128,
-      "maxDuration": 10
-    },
-    "api/usajobs.js": {
-      "memory": 128,
-      "maxDuration": 15
-    },
-    "api/careeronestop.js": {
-      "memory": 128,
-      "maxDuration": 30
-    },
-    "api/resume-checkout.js": {
-      "memory": 128,
-      "maxDuration": 15
-    },
-    "api/resume-entitlement.js": {
-      "memory": 128,
-      "maxDuration": 15
-    },
-    "api/resume-webhook.js": {
-      "memory": 128,
-      "maxDuration": 10
-    },
-    "api/store-checkout.js": {
-      "memory": 128,
-      "maxDuration": 15
-    },
-    "api/store-download.js": {
-      "memory": 256,
-      "maxDuration": 20
-    },
-    "api/resume-generate.js": {
-      "memory": 256,
-      "maxDuration": 60
-    },
-    "api/veteran/[slug].js": {
-      "memory": 128,
-      "maxDuration": 10
-    },
-    "api/review-invite.js": { "memory": 256, "maxDuration": 10 },
-    "api/review-invite-validate.js": { "memory": 256, "maxDuration": 10 },
-    "api/review-submit.js": { "memory": 256, "maxDuration": 15 },
-    "api/review-upload.js": { "memory": 512, "maxDuration": 30 },
-    "api/review-checkout.js": { "memory": 256, "maxDuration": 15 },
-    "api/review-webhook.js": { "memory": 256, "maxDuration": 10 },
-    "api/review-file.js": { "memory": 512, "maxDuration": 20 },
-    "api/review-extract.js": { "memory": 1024, "maxDuration": 30 },
-    "api/review-jobs.js": { "memory": 256, "maxDuration": 15 },
-    "api/review-job.js": { "memory": 256, "maxDuration": 15 },
-    "api/review-ai.js": { "memory": 512, "maxDuration": 60 }
+    "api/claude.js": { "memory": 256, "maxDuration": 30 },
+    "api/validate-code.js": { "memory": 128, "maxDuration": 5 },
+    "api/verify-subscription.js": { "memory": 128, "maxDuration": 10 },
+    "api/usajobs.js": { "memory": 128, "maxDuration": 15 },
+    "api/careeronestop.js": { "memory": 128, "maxDuration": 30 },
+    "api/resume-checkout.js": { "memory": 128, "maxDuration": 15 },
+    "api/resume-entitlement.js": { "memory": 128, "maxDuration": 15 },
+    "api/resume-webhook.js": { "memory": 128, "maxDuration": 10 },
+    "api/resume-generate.js": { "memory": 256, "maxDuration": 60 },
+    "api/veteran/[slug].js": { "memory": 128, "maxDuration": 10 },
+    "api/store.js": { "memory": 512, "maxDuration": 20 },
+    "api/review.js": { "memory": 1024, "maxDuration": 60 }
   },
   "rewrites": [
-    {
-      "source": "/veteran/:slug",
-      "destination": "/api/veteran/:slug"
-    }
+    { "source": "/veteran/:slug", "destination": "/api/veteran/:slug" },
+
+    { "source": "/api/store-checkout", "destination": "/api/store?__fn=checkout" },
+    { "source": "/api/store-download", "destination": "/api/store?__fn=download" },
+
+    { "source": "/api/review-invite-validate", "destination": "/api/review?__fn=invite-validate" },
+    { "source": "/api/review-invite", "destination": "/api/review?__fn=invite" },
+    { "source": "/api/review-upload", "destination": "/api/review?__fn=upload" },
+    { "source": "/api/review-submit", "destination": "/api/review?__fn=submit" },
+    { "source": "/api/review-checkout", "destination": "/api/review?__fn=checkout" },
+    { "source": "/api/review-webhook", "destination": "/api/review?__fn=webhook" },
+    { "source": "/api/review-jobs", "destination": "/api/review?__fn=jobs" },
+    { "source": "/api/review-job", "destination": "/api/review?__fn=job" },
+    { "source": "/api/review-file", "destination": "/api/review?__fn=file" },
+    { "source": "/api/review-extract", "destination": "/api/review?__fn=extract" },
+    { "source": "/api/review-ai", "destination": "/api/review?__fn=ai" }
   ]
 }

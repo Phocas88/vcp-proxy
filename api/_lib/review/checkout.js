@@ -3,9 +3,9 @@
 // SEPARATE from the $1 resume tool. Payment state is set only by review-webhook (server-side).
 // Required env: STRIPE_SECRET_KEY, FIREBASE_SERVICE_ACCOUNT_JSON. Optional: REVIEW_PRICE_CENTS.
 'use strict';
-const { stripePost } = require('./_lib/stripe');
-const { getDb } = require('./_lib/firebase-admin');
-const { setCors, normStr, clientIp, rateLimiter } = require('./_lib/review-common');
+const { stripePost } = require('../stripe');
+const { getDb } = require('../firebase-admin');
+const { setCors, normStr, clientIp, rateLimiter } = require('../review-common');
 
 const SITE = 'https://veterancareerpath.com';
 const limited = rateLimiter({ windowMs: 60_000, max: 12 });

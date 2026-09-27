@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const checkout = require('../api/review-checkout.js');
+const checkout = require('../api/_lib/review/checkout.js');
 
 test('priceCents defaults to 999 and honors REVIEW_PRICE_CENTS', () => {
   delete process.env.REVIEW_PRICE_CENTS;

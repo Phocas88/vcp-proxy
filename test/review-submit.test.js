@@ -1,8 +1,8 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const submit = require('../api/review-submit.js');
-const upload = require('../api/review-upload.js');
+const submit = require('../api/_lib/review/submit.js');
+const upload = require('../api/_lib/review/upload.js');
 const { MAX_FILE_BYTES } = require('../api/_lib/review-common');
 
 const GOOD = {

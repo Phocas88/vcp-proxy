@@ -3,9 +3,9 @@
 // Returns compact queue summaries — not full working-review bodies.
 // Required env: FIREBASE_SERVICE_ACCOUNT_JSON
 'use strict';
-const { requireAdmin } = require('./_lib/admin-auth');
-const { getDb } = require('./_lib/firebase-admin');
-const { setCors, clientIp, rateLimiter, JOB_STATUSES } = require('./_lib/review-common');
+const { requireAdmin } = require('../admin-auth');
+const { getDb } = require('../firebase-admin');
+const { setCors, clientIp, rateLimiter, JOB_STATUSES } = require('../review-common');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 60 });
 
