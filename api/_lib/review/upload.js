@@ -7,11 +7,11 @@
 // Required env: FIREBASE_SERVICE_ACCOUNT_JSON, BLOB_REVIEW_RW_TOKEN (or BLOB_READ_WRITE_TOKEN)
 'use strict';
 const { put } = require('@vercel/blob');
-const { getDb, FieldValue } = require('./_lib/firebase-admin');
+const { getDb, FieldValue } = require('../firebase-admin');
 const {
   setCors, normStr, clientIp, rateLimiter, loadInviteByToken,
   ALLOWED_UPLOAD, MAX_FILE_BYTES, newId,
-} = require('./_lib/review-common');
+} = require('../review-common');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 10 });
 

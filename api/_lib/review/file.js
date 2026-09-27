@@ -5,9 +5,9 @@
 // Required env: FIREBASE_SERVICE_ACCOUNT_JSON, BLOB_REVIEW_RW_TOKEN (or BLOB_READ_WRITE_TOKEN)
 'use strict';
 const { get } = require('@vercel/blob');
-const { requireAdmin } = require('./_lib/admin-auth');
-const { getDb } = require('./_lib/firebase-admin');
-const { setCors, normStr } = require('./_lib/review-common');
+const { requireAdmin } = require('../admin-auth');
+const { getDb } = require('../firebase-admin');
+const { setCors, normStr } = require('../review-common');
 
 function blobToken() { return process.env.BLOB_REVIEW_RW_TOKEN || process.env.BLOB_READ_WRITE_TOKEN || ''; }
 

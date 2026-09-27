@@ -5,9 +5,9 @@
 // Status is validated server-side against the allowed admin-settable set.
 // Required env: FIREBASE_SERVICE_ACCOUNT_JSON
 'use strict';
-const { requireAdmin } = require('./_lib/admin-auth');
-const { getDb, FieldValue } = require('./_lib/firebase-admin');
-const { setCors, normStr, clientIp, rateLimiter, readJsonBody, ADMIN_SETTABLE_STATUSES } = require('./_lib/review-common');
+const { requireAdmin } = require('../admin-auth');
+const { getDb, FieldValue } = require('../firebase-admin');
+const { setCors, normStr, clientIp, rateLimiter, readJsonBody, ADMIN_SETTABLE_STATUSES } = require('../review-common');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 120 });
 const WORKING_KEYS = ['reviewerNotes', 'summaryFeedback', 'priorityFixes', 'bulletRewrites', 'careerRecommendations', 'questionsForClient', 'finalMessage'];

@@ -4,8 +4,8 @@
 // On a verified paid resume-review session it flips the job to "new"/unread and marks the invite used.
 // Required env: STRIPE_WEBHOOK_SECRET_REVIEW, FIREBASE_SERVICE_ACCOUNT_JSON
 'use strict';
-const { verifyStripeWebhook, readRawBody } = require('./_lib/stripe');
-const { getDb, FieldValue } = require('./_lib/firebase-admin');
+const { verifyStripeWebhook, readRawBody } = require('../stripe');
+const { getDb, FieldValue } = require('../firebase-admin');
 
 // In-memory replay guard (bounded). Firestore transaction below is the durable idempotency.
 const processed = new Map();

@@ -14,8 +14,8 @@
 //
 // Required env vars: STRIPE_SECRET_KEY
 'use strict';
-const { stripeGet } = require('./_lib/stripe');
-const { getProduct, SKU_REGEX } = require('./_lib/store-catalog');
+const { stripeGet } = require('../stripe');
+const { getProduct, SKU_REGEX } = require('../store-catalog');
 
 const CS_REGEX = /^cs_(test_|live_)?[A-Za-z0-9_]+$/;
 // How long after purchase a buyer can re-download (generous - covers lost tabs, new device).

@@ -5,8 +5,8 @@
 // /api/store-download to verify payment and stream the PDF.
 // Required env vars: STRIPE_SECRET_KEY
 'use strict';
-const { stripePost } = require('./_lib/stripe');
-const { getProduct, SKU_REGEX } = require('./_lib/store-catalog');
+const { stripePost } = require('../stripe');
+const { getProduct, SKU_REGEX } = require('../store-catalog');
 
 const rateLimit = new Map();
 const RATE_WINDOW_MS = 60_000;

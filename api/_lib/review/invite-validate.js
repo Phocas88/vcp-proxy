@@ -4,8 +4,8 @@
 // Never returns internal Firestore data or the raw token.
 // Required env: FIREBASE_SERVICE_ACCOUNT_JSON
 'use strict';
-const { getDb } = require('./_lib/firebase-admin');
-const { setCors, normStr, clientIp, rateLimiter, loadInviteByToken } = require('./_lib/review-common');
+const { getDb } = require('../firebase-admin');
+const { setCors, normStr, clientIp, rateLimiter, loadInviteByToken } = require('../review-common');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 30 });
 

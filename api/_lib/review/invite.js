@@ -7,9 +7,9 @@
 // token is returned exactly once at creation and never persisted.
 // Required env: FIREBASE_SERVICE_ACCOUNT_JSON
 'use strict';
-const { requireAdmin } = require('./_lib/admin-auth');
-const { getDb, FieldValue } = require('./_lib/firebase-admin');
-const { setCors, newRawToken, hashToken, normStr, clientIp, rateLimiter } = require('./_lib/review-common');
+const { requireAdmin } = require('../admin-auth');
+const { getDb, FieldValue } = require('../firebase-admin');
+const { setCors, newRawToken, hashToken, normStr, clientIp, rateLimiter } = require('../review-common');
 
 const SITE = 'https://veterancareerpath.com';
 const EXPIRY_CHOICES = new Set([24, 72, 168, 336]); // 1d, 3d, 7d, 14d

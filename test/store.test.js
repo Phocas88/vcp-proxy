@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { verifyPurchase, DOWNLOAD_TTL_MS } = require('../api/store-download.js');
+const { verifyPurchase, DOWNLOAD_TTL_MS } = require('../api/_lib/store/download.js');
 const { getProduct, SKU_REGEX } = require('../api/_lib/store-catalog.js');
 
 const SKU = 'infantry-11-series';
