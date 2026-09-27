@@ -4,12 +4,11 @@
 // Optional env var: ANTHROPIC_ALLOWED_MODELS (comma-separated)
 
 const { bearerToken, verifySession } = require('./_lib/session');
+const { allowedModels, DEFAULT_MODEL, MAX_TOKENS_LIMIT, anthropicRequest } = require('./_lib/anthropic');
 
 const rateLimit = new Map();
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX_REQUESTS = 20;
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
-const MAX_TOKENS_LIMIT = 3000;
 const MAX_BODY_BYTES = 80 * 1024;
 
 function setCors(req, res) {
@@ -34,14 +33,6 @@ function isRateLimited(key) {
   }
   entry.count += 1;
   return entry.count > RATE_MAX_REQUESTS;
-}
-
-function allowedModels() {
-  const configured = (process.env.ANTHROPIC_ALLOWED_MODELS || '')
-    .split(',')
-    .map(value => value.trim())
-    .filter(Boolean);
-  return new Set(configured.length ? configured : [DEFAULT_MODEL]);
 }
 
 function validateBody(input) {
@@ -111,25 +102,14 @@ module.exports = async function handler(req, res) {
   const timeout = setTimeout(() => controller.abort(), 25_000);
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(validated.body),
-      signal: controller.signal,
-    });
+    const { ok, status, data } = await anthropicRequest(validated.body, { signal: controller.signal });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('[claude] Anthropic error:', response.status, data?.error?.type);
-      return res.status(response.status).json({
+    if (!ok) {
+      console.error('[claude] Anthropic error:', status, data?.error?.type);
+      return res.status(status).json({
         error: data?.error?.message || 'AI service request failed',
         type: data?.error?.type,
-        status: response.status,
+        status,
       });
     }
 
