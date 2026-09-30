@@ -7,81 +7,130 @@
 'use strict';
 const { requireAdmin } = require('../admin-auth');
 const { getDb, FieldValue } = require('../firebase-admin');
-const { setCors, normStr, rateLimiter, newId } = require('../review-common');
+const { setCors, normStr, normTrack, rateLimiter, newId } = require('../review-common');
 const { callAnthropic, extractText, resolveModel, DEFAULT_MODEL } = require('../anthropic');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 30 });
-const PROMPT_VERSION = 'rr-v1';
+const PROMPT_VERSION = 'rr-v2';
 
-// These rules are non-negotiable and live server-side so they cannot be edited away by the client.
-const SYSTEM = [
+// Anti-fabrication core shared by BOTH tracks. Non-negotiable; lives server-side so it
+// cannot be edited away by the client.
+const NO_FABRICATE = [
+  'ABSOLUTE RULES — NEVER FABRICATE any of the following if not explicitly supplied by the client:',
+  'number of people led, dollar values, budgets, percentages, metrics, certifications, awards,',
+  'clearances, education/degrees, software/tools experience, licenses, job titles, responsibilities,',
+  'employers, or years of experience.',
+  'If a stronger bullet would benefit from a metric you do not have, insert the literal token',
+  '"[CLIENT METRIC NEEDED]" and state exactly what question the reviewer should ask the client.',
+  'Do NOT inflate titles. Stay grounded strictly in the client-supplied experience and resume text.',
+  'Be specific, honest, and useful. Use plain language a hiring manager understands.',
+];
+
+const SYSTEM_VETERAN = [
   'You are an experienced U.S. military-to-civilian resume reviewer assisting a HUMAN reviewer at Veteran Career Path.',
   'Your output is a DRAFT for the human reviewer to edit. It is never sent to the client automatically.',
   '',
-  'ABSOLUTE RULES — NEVER FABRICATE any of the following if not explicitly supplied by the client:',
-  'number of people led, dollar values, budgets, readiness rates, percentages, certifications, awards,',
-  'security clearances, education/degrees, software/tools experience, licenses, job titles, responsibilities,',
-  'deployment history, or years of experience.',
-  'If a stronger bullet would benefit from a metric you do not have, insert the literal token',
-  '"[CLIENT METRIC NEEDED]" and state exactly what question the reviewer should ask the client.',
+  ...NO_FABRICATE,
   '',
-  'Do NOT inflate titles. Do NOT translate a rank into a civilian title the experience does not support',
-  '(e.g., "Squad Leader" is NOT automatically "Operations Manager"). Translate demonstrated CAPABILITIES and',
-  'OUTCOMES, not ranks. Never imply the veteran performed licensed/regulated civilian work they were not',
-  'licensed for (e.g., 12B does not make someone a licensed blaster/surveyor/civil engineer; 11B does not make',
-  'someone a law-enforcement officer). Stay grounded strictly in the client-supplied experience and resume text.',
-  'Be specific, honest, and useful. Use plain civilian language a hiring manager understands.',
+  'Do NOT translate a rank into a civilian title the experience does not support (e.g., "Squad Leader" is NOT',
+  'automatically "Operations Manager"). Translate demonstrated CAPABILITIES and OUTCOMES, not ranks. Never imply',
+  'the veteran performed licensed/regulated civilian work they were not licensed for (e.g., 12B does not make',
+  'someone a licensed blaster/surveyor/civil engineer; 11B does not make someone a law-enforcement officer).',
 ].join('\n');
 
-const TOOLS = {
-  full_review: { label: 'Full Resume Review', max: 3000, instr:
+const SYSTEM_CIVILIAN = [
+  'You are an experienced professional resume reviewer and career coach assisting a HUMAN reviewer at Veteran Career Path.',
+  'The client is a civilian job seeker (no military background). Your output is a DRAFT for the human reviewer to edit;',
+  'it is never sent to the client automatically.',
+  '',
+  ...NO_FABRICATE,
+  '',
+  'Never imply the client performed licensed/regulated work (e.g., attorney, CPA, RN, PE) unless they explicitly',
+  'stated the credential. Replace vague or jargon-heavy wording with clear, results-focused language, but never',
+  'invent seniority, scope, or outcomes the experience does not support.',
+].join('\n');
+
+// Track-specific wording for the two tools that reference "military translation".
+const FULL_REVIEW_SECTION4 = {
+  veteran: 'Military Language That Needs Translation',
+  civilian: 'Jargon / Unclear Language That Needs Fixing',
+};
+const TRANSLATE = {
+  veteran: { label: 'Military → Civilian Translation', instr:
+`Translate the client's military experience and resume bullets into civilian language a hiring manager understands. Show ORIGINAL then SUGGESTED. Translate capabilities/outcomes, not ranks. Flag anything that needs a metric with [CLIENT METRIC NEEDED].` },
+  civilian: { label: 'De-jargon & Clarify', instr:
+`Rewrite the client's jargon-heavy, vague, or acronym-laden resume bullets into clear, results-focused language a hiring manager in the target field understands. Show ORIGINAL then SUGGESTED. Flag anything that needs a metric with [CLIENT METRIC NEEDED].` },
+};
+
+function toolsFor(track) {
+  track = normTrack(track);
+  return {
+    full_review: { label: 'Full Resume Review', max: 3000, instr:
 `Produce a complete review with these numbered sections, each with a clear heading:
 1. Reviewer Summary
 2. Strongest Existing Content
 3. Biggest Problems
-4. Military Language That Needs Translation
+4. ${FULL_REVIEW_SECTION4[track]}
 5. Before / After Bullet Rewrites (show ORIGINAL: then SUGGESTED: for each)
 6. Missing Metrics to Ask Client About (use [CLIENT METRIC NEEDED])
-7. Missing Civilian Keywords
+7. Missing Keywords for the Target Role
 8. Skills Already Demonstrated
 9. Career Fit Observations
 10. Certifications or Credential Gaps
 11. Resume Structure / Formatting Advice
 12. Questions for the Client
 13. Recommended Next Actions` },
-  translate: { label: 'Military → Civilian Translation', max: 2000, instr:
-`Translate the client's military experience and resume bullets into civilian language a hiring manager understands. Show ORIGINAL then SUGGESTED. Translate capabilities/outcomes, not ranks. Flag anything that needs a metric with [CLIENT METRIC NEEDED].` },
-  rewrite_bullets: { label: 'Rewrite Bullets', max: 2500, instr:
-`Rewrite the resume's experience bullets. Respond with ONLY a JSON array (no prose, no code fences) of objects: [{"original":"<verbatim original bullet>","suggested":"<improved civilian bullet>"}]. Keep every claim grounded in supplied facts; use [CLIENT METRIC NEEDED] inside "suggested" where a number would strengthen it but is unknown. Include 5-15 items.` },
-  summary: { label: 'Professional Summary', max: 1200, instr:
+    translate: { label: TRANSLATE[track].label, max: 2000, instr: TRANSLATE[track].instr },
+    rewrite_bullets: { label: 'Rewrite Bullets', max: 2500, instr:
+`Rewrite the resume's experience bullets. Respond with ONLY a JSON array (no prose, no code fences) of objects: [{"original":"<verbatim original bullet>","suggested":"<improved resume bullet>"}]. Keep every claim grounded in supplied facts; use [CLIENT METRIC NEEDED] inside "suggested" where a number would strengthen it but is unknown. Include 5-15 items.` },
+    summary: { label: 'Professional Summary', max: 1200, instr:
 `Write 2-3 professional-summary options (3-4 lines each) for the target role, grounded only in supplied experience. Use [CLIENT METRIC NEEDED] rather than inventing numbers.` },
-  ats: { label: 'ATS / Keyword Review', max: 1800, instr:
+    ats: { label: 'ATS / Keyword Review', max: 1800, instr:
 `Give ATS/keyword feedback for the target role/industry (and job description if provided): missing keywords the client's real experience supports, formatting issues that hurt parsing, and section/heading advice. Do not promise ATS results.` },
-  career_fit: { label: 'Career Fit', max: 1800, instr:
+    career_fit: { label: 'Career Fit', max: 1800, instr:
 `Assess fit for the stated target role/industry based on real experience. Note transferable strengths, gaps, and 2-4 adjacent roles worth considering. No guarantees.` },
-  missing_metrics: { label: 'Missing Metrics / Questions', max: 1500, instr:
+    missing_metrics: { label: 'Missing Metrics / Questions', max: 1500, instr:
 `List the specific quantifiable metrics and details the reviewer should collect to strengthen this resume. For each, write the exact question to ask the client. Use [CLIENT METRIC NEEDED] framing.` },
-  target_job: { label: 'Target This Job', max: 2200, instr:
+    target_job: { label: 'Target This Job', max: 2200, instr:
 `Using the provided TARGET JOB DESCRIPTION, tailor advice: which real experience to foreground, which keywords to add (only if supported), and 5-10 tailored ORIGINAL→SUGGESTED bullet rewrites. If no job description was provided, say so and give role-based guidance instead.` },
-  cert_gaps: { label: 'Certification / Skill Gaps', max: 1600, instr:
+    cert_gaps: { label: 'Certification / Skill Gaps', max: 1600, instr:
 `Identify realistic certifications, licenses, or skills that would strengthen candidacy for the target role, distinguishing "already has (per client)" from "would help". Never claim the client holds a credential they did not state.` },
-  draft_feedback: { label: 'Draft Client Feedback', max: 2000, instr:
+    draft_feedback: { label: 'Draft Client Feedback', max: 2000, instr:
 `Draft a warm, professional client-facing feedback message (first person, from the reviewer) summarizing the top strengths, the priority fixes, and the questions you need answered. This is a DRAFT for the human reviewer to edit before sending.` },
-};
+  };
+}
 
 function contextBlock(job) {
-  const m = job.military || {}, c = job.career || {}, r = job.reviewRequest || {};
+  const track = normTrack(job.track);
+  const c = job.career || {}, r = job.reviewRequest || {};
   const line = (k, v) => (v ? `${k}: ${v}` : '');
+  const facts = ['CLIENT-SUPPLIED FACTS (authoritative — do not contradict or exceed):'];
+
+  if (track === 'civilian') {
+    const g = job.background || {};
+    facts.push(
+      line('Most recent job title', g.currentTitle), line('Years of experience', g.yearsExperience),
+      line('Current status', g.employmentStatus), line('Career level', g.careerLevel),
+      line('Current/most recent employer', g.currentEmployer), line('Current field/industry', g.currentField),
+      line('Key skills (as stated)', g.keySkills),
+      line('Certifications (as stated)', g.certifications), line('Education (as stated)', g.education),
+      line('Additional experience', g.additionalExperience),
+    );
+  } else {
+    const m = job.military || {};
+    facts.push(
+      line('Branch', m.branch), line('MOS/Rate/AFSC', m.mos), line('Highest rank/grade', m.rank),
+      line('Years of service', m.yearsService), line('Current status', m.serviceStatus),
+      line('Security clearance (as stated)', m.clearance),
+      line('Certifications (as stated)', m.certifications), line('Education (as stated)', m.education),
+      line('Additional military experience', m.additionalExperience),
+      line('Awards/qualifications to consider', m.awardsQualifications),
+    );
+  }
+
   return [
-    'CLIENT-SUPPLIED FACTS (authoritative — do not contradict or exceed):',
-    line('Branch', m.branch), line('MOS/Rate/AFSC', m.mos), line('Highest rank/grade', m.rank),
-    line('Years of service', m.yearsService), line('Current status', m.serviceStatus),
-    line('Security clearance (as stated)', m.clearance),
-    line('Certifications (as stated)', m.certifications),
-    line('Education (as stated)', m.education),
-    line('Additional military experience', m.additionalExperience),
-    line('Awards/qualifications to consider', m.awardsQualifications),
-    line('Target civilian role', c.primaryTarget), line('Secondary target', c.secondaryTarget),
+    ...facts,
+    line('Target role', c.primaryTarget), line('Secondary target', c.secondaryTarget),
     line('Target industry', c.industry), line('Target company', c.targetCompany),
     line('Target location / remote', c.targetLocation || c.remotePreference),
     line('What the client wants help with', r.requestedHelp),
@@ -108,8 +157,6 @@ module.exports = async function handler(req, res) {
   const jobId = normStr(req.body?.jobId, 64);
   const toolKey = normStr(req.body?.tool, 40);
   if (!/^[a-f0-9]{16,32}$/i.test(jobId)) return res.status(400).json({ error: 'invalid_job' });
-  const tool = TOOLS[toolKey];
-  if (!tool) return res.status(400).json({ error: 'unknown_tool' });
 
   const model = resolveModel(req.body?.model) || DEFAULT_MODEL;
 
@@ -119,6 +166,11 @@ module.exports = async function handler(req, res) {
     if (!snap.exists) return res.status(404).json({ error: 'not_found' });
     job = snap.data();
   } catch (e) { console.error('[review-ai] load error:', e.message); return res.status(500).json({ error: 'server_error' }); }
+
+  const track = normTrack(job.track);
+  const tool = toolsFor(track)[toolKey];
+  if (!tool) return res.status(400).json({ error: 'unknown_tool' });
+  const system = track === 'civilian' ? SYSTEM_CIVILIAN : SYSTEM_VETERAN;
 
   const runId = newId(10);
   const runRef = db.collection('resumeReviewJobs').doc(jobId).collection('aiRuns').doc(runId);
@@ -130,7 +182,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const data = await callAnthropic({
-      system: SYSTEM,
+      system,
       messages: [{ role: 'user', content: userPrompt }],
       model,
       maxTokens: tool.max,

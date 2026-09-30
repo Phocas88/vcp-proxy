@@ -12,18 +12,52 @@ const GOOD = {
   targetLocation: 'Dallas, TX', requestedHelp: 'Translate my experience.',
 };
 
+const GOOD_CIVILIAN = {
+  fullName: 'Dana Ruiz', email: 'dana@example.com', employmentStatus: 'Employed',
+  currentTitle: 'Warehouse Supervisor', yearsExperience: '6', careerLevel: 'Mid level',
+  primaryTarget: 'Operations Coordinator', industry: 'Logistics',
+  targetLocation: 'Columbus, OH', requestedHelp: 'Tighten my bullets and add metrics.',
+};
+
 test('buildIntake accepts a complete intake and normalizes email', () => {
   const r = submit.buildIntake(GOOD);
   assert.equal(r.missing.length, 0);
+  assert.equal(r.track, 'veteran');
   assert.equal(r.client.name, 'Jeremy Floyd');
   assert.equal(r.client.email, 'jeremy@example.com');
   assert.equal(r.military.serviceStatus, 'Veteran');
 });
 
+test('buildIntake civilian track builds background, not military', () => {
+  const r = submit.buildIntake(GOOD_CIVILIAN, 'civilian');
+  assert.equal(r.missing.length, 0);
+  assert.equal(r.track, 'civilian');
+  assert.equal(r.military, undefined);
+  assert.equal(r.background.currentTitle, 'Warehouse Supervisor');
+  assert.equal(r.background.employmentStatus, 'Employed');
+  assert.equal(r.background.careerLevel, 'Mid level');
+  assert.equal(r.client.name, 'Dana Ruiz');
+});
+
+test('buildIntake civilian reports its own required fields and rejects bad status', () => {
+  const r = submit.buildIntake({}, 'civilian');
+  ['Full name', 'Email address', 'Most recent job title', 'Years of experience', 'Current status',
+    'Primary target role', 'Target industry', 'What you want help with']
+    .forEach((label) => assert.ok(r.missing.includes(label), 'missing ' + label));
+  const bad = submit.buildIntake(Object.assign({}, GOOD_CIVILIAN, { employmentStatus: 'Retired general' }), 'civilian');
+  assert.ok(bad.missing.includes('Current status'));
+});
+
+test('buildIntake ignores an unknown track and falls back to veteran', () => {
+  const r = submit.buildIntake(GOOD, 'astronaut');
+  assert.equal(r.track, 'veteran');
+  assert.ok(r.military);
+});
+
 test('buildIntake reports each missing required field', () => {
   const r = submit.buildIntake({});
   ['Full name', 'Email address', 'Military branch', 'MOS / Rate / AFSC', 'Highest rank or grade',
-    'Years of service', 'Current status', 'Primary civilian target', 'Target industry',
+    'Years of service', 'Current status', 'Primary target role', 'Target industry',
     'What you want help with'].forEach((label) => assert.ok(r.missing.includes(label), 'missing ' + label));
 });
 

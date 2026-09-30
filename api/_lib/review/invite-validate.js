@@ -37,6 +37,7 @@ module.exports = async function handler(req, res) {
       valid: true,
       expired: false,
       used: false,
+      track: v.track || 'veteran',
       prefill: {
         name: v.prefillName || '',
         mos: v.prefillMos || '',

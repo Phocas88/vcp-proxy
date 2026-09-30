@@ -22,6 +22,9 @@ async function maybeSendAlert(job) {
   const to = process.env.RESUME_REVIEW_ALERT_EMAIL;
   const resendKey = process.env.RESEND_API_KEY; // only used if the site already has Resend
   if (!to || !resendKey) return; // no brand-new vendor added; skip unless already configured
+  const who = job.track === 'civilian'
+    ? `${job.background?.currentTitle || ''}`.trim()
+    : `${job.military?.branch || ''} ${job.military?.mos || ''}`.trim();
   try {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -29,8 +32,8 @@ async function maybeSendAlert(job) {
       body: JSON.stringify({
         from: process.env.RESUME_REVIEW_ALERT_FROM || 'alerts@veterancareerpath.com',
         to,
-        subject: 'New Resume Review',
-        text: `New paid resume review: ${job.client?.name || 'Client'} • ${job.military?.branch || ''} ${job.military?.mos || ''}`.trim(),
+        subject: `New Resume Review (${job.track === 'civilian' ? 'Civilian' : 'Veteran'})`,
+        text: `New paid resume review: ${job.client?.name || 'Client'} • ${who}`.trim(),
       }),
     });
   } catch (_) { /* alerting is best-effort */ }

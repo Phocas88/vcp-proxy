@@ -5,10 +5,16 @@
 'use strict';
 const { stripePost } = require('../stripe');
 const { getDb } = require('../firebase-admin');
-const { setCors, normStr, clientIp, rateLimiter } = require('../review-common');
+const { setCors, normStr, normTrack, clientIp, rateLimiter } = require('../review-common');
 
 const SITE = 'https://veterancareerpath.com';
 const limited = rateLimiter({ windowMs: 60_000, max: 12 });
+// Track-specific intake page (for Stripe return URLs) and checkout line-item copy.
+const TRACK_PAGE = { veteran: '/resume-review.html', civilian: '/civilian-resume-review.html' };
+const TRACK_PRODUCT = {
+  veteran: { name: 'Veteran Resume Review', description: 'Human resume review with AI-assisted tools. One reviewed resume with written feedback.' },
+  civilian: { name: 'Professional Resume Review', description: 'Human resume review with AI-assisted tools. One reviewed resume with written feedback.' },
+};
 
 function priceCents() {
   const n = Number.parseInt(process.env.REVIEW_PRICE_CENTS || '999', 10);
@@ -39,6 +45,10 @@ module.exports = async function handler(req, res) {
       return res.status(409).json({ error: 'not_payable' });
     }
 
+    const track = normTrack(job.track);
+    const page = TRACK_PAGE[track] || TRACK_PAGE.veteran;
+    const product = TRACK_PRODUCT[track] || TRACK_PRODUCT.veteran;
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12_000);
     try {
@@ -53,14 +63,11 @@ module.exports = async function handler(req, res) {
           price_data: {
             currency: 'usd',
             unit_amount: priceCents(),
-            product_data: {
-              name: 'Veteran Resume Review',
-              description: 'Human resume review with AI-assisted tools. One reviewed resume with written feedback.',
-            },
+            product_data: { name: product.name, description: product.description },
           },
         }],
-        success_url: `${SITE}/resume-review.html?paid=1&job=${encodeURIComponent(jobId)}`,
-        cancel_url: `${SITE}/resume-review.html?canceled=1`,
+        success_url: `${SITE}${page}?paid=1&job=${encodeURIComponent(jobId)}`,
+        cancel_url: `${SITE}${page}?canceled=1`,
       }, key, controller.signal);
       return res.status(200).json({ id: session.id, url: session.url });
     } finally { clearTimeout(timer); }

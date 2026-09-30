@@ -6,14 +6,16 @@
 'use strict';
 const { getDb, FieldValue } = require('../firebase-admin');
 const {
-  setCors, normStr, normEmail, pick, clientIp, rateLimiter, loadInviteByToken, newId, SERVICE_TYPE,
+  setCors, normStr, normEmail, pick, normTrack, clientIp, rateLimiter, loadInviteByToken, newId, SERVICE_TYPE,
 } = require('../review-common');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 10 });
 const SERVICE_STATUS = ['Active Duty', 'Veteran', 'National Guard', 'Reserve'];
+const EMPLOYMENT_STATUS = ['Employed', 'Between jobs', 'Student / new grad', 'Career changer', 'Returning to workforce'];
+const CAREER_LEVEL = ['Entry level', 'Mid level', 'Senior', 'Manager', 'Director', 'Executive'];
 
-function buildIntake(b) {
-  const missing = [];
+// Fields shared by both tracks: client contact, career target, review request.
+function buildCommon(b, missing) {
   const req = (v, label, max) => { const s = normStr(v, max); if (!s) missing.push(label); return s; };
 
   const client = {
@@ -23,22 +25,8 @@ function buildIntake(b) {
   };
   if (!client.email) missing.push('Email address');
 
-  const military = {
-    branch: req(b.branch, 'Military branch', 40),
-    mos: req(b.mos, 'MOS / Rate / AFSC', 60),
-    rank: req(b.rank, 'Highest rank or grade', 60),
-    yearsService: req(b.yearsService, 'Years of service', 20),
-    serviceStatus: pick(b.serviceStatus, SERVICE_STATUS, ''),
-    clearance: normStr(b.clearance, 60),
-    certifications: normStr(b.certifications, 2000),
-    education: normStr(b.education, 2000),
-    additionalExperience: normStr(b.additionalExperience, 4000),
-    awardsQualifications: normStr(b.awardsQualifications, 2000),
-  };
-  if (!military.serviceStatus) missing.push('Current status');
-
   const career = {
-    primaryTarget: req(b.primaryTarget, 'Primary civilian target', 120),
+    primaryTarget: req(b.primaryTarget, 'Primary target role', 120),
     secondaryTarget: normStr(b.secondaryTarget, 120),
     industry: req(b.industry, 'Target industry', 80),
     targetCompany: normStr(b.targetCompany, 120),
@@ -55,7 +43,49 @@ function buildIntake(b) {
     clientNotes: normStr(b.clientNotes, 4000),
   };
 
-  return { client, military, career, reviewRequest, missing };
+  return { client, career, reviewRequest };
+}
+
+// Build the track-specific intake. Returns { client, track, military|background, career, reviewRequest, missing }.
+// Default track 'veteran' keeps the original (no-arg) contract — and its .military shape — unchanged.
+function buildIntake(b, track = 'veteran') {
+  track = normTrack(track);
+  const missing = [];
+  const req = (v, label, max) => { const s = normStr(v, max); if (!s) missing.push(label); return s; };
+  const common = buildCommon(b, missing);
+
+  if (track === 'civilian') {
+    const background = {
+      currentTitle: req(b.currentTitle, 'Most recent job title', 120),
+      yearsExperience: req(b.yearsExperience, 'Years of experience', 20),
+      employmentStatus: pick(b.employmentStatus, EMPLOYMENT_STATUS, ''),
+      careerLevel: pick(b.careerLevel, CAREER_LEVEL, ''),
+      currentEmployer: normStr(b.currentEmployer, 120),
+      currentField: normStr(b.currentField, 80),
+      keySkills: normStr(b.keySkills, 2000),
+      certifications: normStr(b.certifications, 2000),
+      education: normStr(b.education, 2000),
+      additionalExperience: normStr(b.additionalExperience, 4000),
+    };
+    if (!background.employmentStatus) missing.push('Current status');
+    return { ...common, track, background, missing };
+  }
+
+  const military = {
+    branch: req(b.branch, 'Military branch', 40),
+    mos: req(b.mos, 'MOS / Rate / AFSC', 60),
+    rank: req(b.rank, 'Highest rank or grade', 60),
+    yearsService: req(b.yearsService, 'Years of service', 20),
+    serviceStatus: pick(b.serviceStatus, SERVICE_STATUS, ''),
+    clearance: normStr(b.clearance, 60),
+    certifications: normStr(b.certifications, 2000),
+    education: normStr(b.education, 2000),
+    additionalExperience: normStr(b.additionalExperience, 4000),
+    awardsQualifications: normStr(b.awardsQualifications, 2000),
+  };
+  if (!military.serviceStatus) missing.push('Current status');
+
+  return { ...common, track, military, missing };
 }
 
 module.exports = async function handler(req, res) {
@@ -77,7 +107,8 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'consent_required' });
   }
 
-  const intake = buildIntake(b);
+  const track = normTrack(invite.data && invite.data.track);
+  const intake = buildIntake(b, track);
   if (intake.missing.length) return res.status(400).json({ error: 'missing_fields', missing: intake.missing });
   if (career_urlBad(intake.career.jobPostingUrl)) return res.status(400).json({ error: 'invalid_url' });
 
@@ -107,10 +138,12 @@ module.exports = async function handler(req, res) {
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         serviceType: SERVICE_TYPE,
+        track,
         inviteHash: invite.inviteHash,
         source: iv.source || 'TikTok DM',
         client: intake.client,
-        military: intake.military,
+        military: intake.military || null,
+        background: intake.background || null,
         career: intake.career,
         reviewRequest: intake.reviewRequest,
         consent: { employment: true, aiAssist: true, at: FieldValue.serverTimestamp() },
