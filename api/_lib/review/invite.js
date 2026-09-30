@@ -9,9 +9,11 @@
 'use strict';
 const { requireAdmin } = require('../admin-auth');
 const { getDb, FieldValue } = require('../firebase-admin');
-const { setCors, newRawToken, hashToken, normStr, clientIp, rateLimiter } = require('../review-common');
+const { setCors, newRawToken, hashToken, normStr, normTrack, clientIp, rateLimiter } = require('../review-common');
 
 const SITE = 'https://veterancareerpath.com';
+// Each track has its own invite-gated intake page (same backend pipeline).
+const INTAKE_PAGE = { veteran: '/resume-review.html', civilian: '/civilian-resume-review.html' };
 const EXPIRY_CHOICES = new Set([24, 72, 168, 336]); // 1d, 3d, 7d, 14d
 const limited = rateLimiter({ windowMs: 60_000, max: 30 });
 
@@ -39,6 +41,7 @@ module.exports = async function handler(req, res) {
         return {
           inviteHash: d.id,
           status,
+          track: v.track || 'veteran',
           prefillName: v.prefillName || '',
           prefillMos: v.prefillMos || '',
           source: v.source || '',
@@ -69,6 +72,7 @@ module.exports = async function handler(req, res) {
 
       if (action === 'create') {
         const hours = EXPIRY_CHOICES.has(Number(body.expiresInHours)) ? Number(body.expiresInHours) : 168;
+        const track = normTrack(body.track);
         const raw = newRawToken();
         const inviteHash = hashToken(raw);
         const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -79,6 +83,7 @@ module.exports = async function handler(req, res) {
           usedAt: null,
           status: 'active',
           serviceType: 'resume_review',
+          track,
           prefillName: normStr(body.clientName, 120),
           prefillMos: normStr(body.mos, 60),
           source: normStr(body.source, 60) || 'TikTok DM',
@@ -86,8 +91,9 @@ module.exports = async function handler(req, res) {
           jobId: null,
         });
         return res.status(200).json({
-          url: `${SITE}/resume-review.html?token=${raw}`,
+          url: `${SITE}${INTAKE_PAGE[track] || INTAKE_PAGE.veteran}?token=${raw}`,
           token: raw,
+          track,
           inviteHash,
           expiresAt: expiresAt.getTime(),
         });

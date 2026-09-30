@@ -73,8 +73,8 @@ function serializeJob(j) {
   // Convert timestamps; drop internal blob URLs from file metadata (admin fetches via review-file).
   const files = Array.isArray(j.files) ? j.files.map((f) => ({ fileId: f.fileId, filename: f.filename, size: f.size, contentType: f.contentType, kind: f.kind })) : [];
   return {
-    serviceType: j.serviceType, status: j.status, unread: !!j.unread, source: j.source,
-    client: j.client || {}, military: j.military || {}, career: j.career || {}, reviewRequest: j.reviewRequest || {},
+    serviceType: j.serviceType, track: j.track || 'veteran', status: j.status, unread: !!j.unread, source: j.source,
+    client: j.client || {}, military: j.military || {}, background: j.background || {}, career: j.career || {}, reviewRequest: j.reviewRequest || {},
     files,
     payment: { status: j.payment?.status || 'unpaid', amount: j.payment?.amount || null, currency: j.payment?.currency || 'usd', paidAt: ms(j.payment?.paidAt) },
     reviewerNotes: j.reviewerNotes || '', extractedResumeText: j.extractedResumeText || '',
