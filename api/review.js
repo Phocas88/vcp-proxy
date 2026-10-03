@@ -18,6 +18,7 @@ const H = {
   'file': require('./_lib/review/file'),
   'extract': require('./_lib/review/extract'),
   'ai': require('./_lib/review/ai'),
+  'journey': require('./_lib/review/journey'),
 };
 // These consume the raw request stream themselves (binary upload / Stripe signature).
 const RAW = { upload: true, webhook: true };

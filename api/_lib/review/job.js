@@ -7,11 +7,21 @@
 'use strict';
 const { requireAdmin } = require('../admin-auth');
 const { getDb, FieldValue } = require('../firebase-admin');
-const { setCors, normStr, clientIp, rateLimiter, readJsonBody, ADMIN_SETTABLE_STATUSES } = require('../review-common');
+const { setCors, normStr, clientIp, rateLimiter, readJsonBody, ADMIN_SETTABLE_STATUSES, newRawToken, hashToken } = require('../review-common');
 
 const limited = rateLimiter({ windowMs: 60_000, max: 120 });
 const WORKING_KEYS = ['reviewerNotes', 'summaryFeedback', 'priorityFixes', 'bulletRewrites', 'careerRecommendations', 'questionsForClient', 'finalMessage'];
 const BIG = 20000;
+
+// Client "Career Journey" portal: a capability link that goes live when a review is
+// delivered and stays up for 30 days (then the admin can archive it). The raw token is
+// stored on the job so the admin can re-copy the same link; only its hash is used for the
+// public lookup (review/journey.js). The portal returns no secrets, so a stable, re-copyable
+// bearer link is an acceptable tradeoff for a good client experience.
+const PORTAL_DAYS = 30;
+const SITE = 'https://veterancareerpath.com';
+function portalUrl(rawToken) { return SITE + '/journey.html?token=' + rawToken; }
+function portalWindow() { return new Date(Date.now() + PORTAL_DAYS * 86400000); }
 
 module.exports = async function handler(req, res) {
   setCors(req, res, 'GET, PATCH, OPTIONS');
@@ -38,14 +48,61 @@ module.exports = async function handler(req, res) {
     if (req.method === 'PATCH') {
       const body = await readJsonBody(req);
       if (body === null) return res.status(400).json({ error: 'bad_json' });
+
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: 'not_found' });
+      const job = snap.data();
+
       const updates = { updatedAt: FieldValue.serverTimestamp() };
+      const resp = { ok: true };
+
+      // ── Portal lifecycle ──
+      // portalAction: 'archive' takes the client link offline; 'relink' issues a fresh link
+      // and resets the 30-day window (old link stops working). Delivering a review (below)
+      // auto-publishes the portal the first time.
+      const portalAction = normStr(body.portalAction, 20);
+      if (portalAction === 'archive') {
+        updates['portal.status'] = 'archived';
+        updates['portal.archivedAt'] = FieldValue.serverTimestamp();
+      } else if (portalAction === 'reactivate' && job.portalToken) {
+        // Bring the client's EXISTING link back online + reset the 30-day window.
+        updates['portal.status'] = 'active';
+        updates['portal.expiresAt'] = portalWindow();
+        resp.portalUrl = portalUrl(job.portalToken);
+      } else if (portalAction === 'relink' || (portalAction === 'reactivate' && !job.portalToken)) {
+        const raw = newRawToken();
+        updates.portalToken = raw;
+        updates.portalHash = hashToken(raw);
+        updates['portal.status'] = 'active';
+        updates['portal.publishedAt'] = FieldValue.serverTimestamp();
+        updates['portal.expiresAt'] = portalWindow();
+        resp.portalUrl = portalUrl(raw);
+      }
 
       if (body.status !== undefined) {
         const st = normStr(body.status, 40);
         if (!ADMIN_SETTABLE_STATUSES.includes(st)) return res.status(400).json({ error: 'invalid_status' });
         updates.status = st;
-        if (st === 'delivered') updates.deliveredAt = FieldValue.serverTimestamp();
+        if (st === 'delivered') {
+          updates.deliveredAt = FieldValue.serverTimestamp();
+          if (!job.portalHash && portalAction !== 'relink') {
+            // First delivery: mint the portal and open the 30-day window.
+            const raw = newRawToken();
+            updates.portalToken = raw;
+            updates.portalHash = hashToken(raw);
+            updates['portal.status'] = 'active';
+            updates['portal.publishedAt'] = FieldValue.serverTimestamp();
+            updates['portal.expiresAt'] = portalWindow();
+            resp.portalUrl = portalUrl(raw);
+          } else if (job.portalToken && portalAction !== 'relink' && (job.portal && job.portal.status) !== 'active') {
+            // Re-delivering after an archive/expiry: reactivate the same link + reset window.
+            updates['portal.status'] = 'active';
+            updates['portal.expiresAt'] = portalWindow();
+            resp.portalUrl = portalUrl(job.portalToken);
+          }
+        }
       }
+
       if (body.unread !== undefined) updates.unread = !!body.unread;
       if (body.reviewerNotes !== undefined) updates.reviewerNotes = normStr(body.reviewerNotes, BIG);
       if (body.finalReview !== undefined) updates.finalReview = normStr(body.finalReview, BIG);
@@ -55,10 +112,8 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      const snap = await ref.get();
-      if (!snap.exists) return res.status(404).json({ error: 'not_found' });
       await ref.update(updates);
-      return res.status(200).json({ ok: true });
+      return res.status(200).json(resp);
     }
 
     return res.status(405).json({ error: 'method_not_allowed' });
@@ -80,5 +135,11 @@ function serializeJob(j) {
     reviewerNotes: j.reviewerNotes || '', extractedResumeText: j.extractedResumeText || '',
     workingReview: j.workingReview || {}, finalReview: j.finalReview || '',
     createdAt: ms(j.createdAt), updatedAt: ms(j.updatedAt), deliveredAt: ms(j.deliveredAt),
+    portal: {
+      status: (j.portal && j.portal.status) || null,
+      publishedAt: ms(j.portal && j.portal.publishedAt),
+      expiresAt: ms(j.portal && j.portal.expiresAt),
+    },
+    portalUrl: j.portalToken ? ('https://veterancareerpath.com/journey.html?token=' + j.portalToken) : null,
   };
 }

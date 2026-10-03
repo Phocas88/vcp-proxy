@@ -29,6 +29,7 @@
     { "source": "/api/review-job", "destination": "/api/review?__fn=job" },
     { "source": "/api/review-file", "destination": "/api/review?__fn=file" },
     { "source": "/api/review-extract", "destination": "/api/review?__fn=extract" },
-    { "source": "/api/review-ai", "destination": "/api/review?__fn=ai" }
+    { "source": "/api/review-ai", "destination": "/api/review?__fn=ai" },
+    { "source": "/api/review-journey", "destination": "/api/review?__fn=journey" }
   ]
 }
