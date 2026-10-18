@@ -32,10 +32,10 @@ function encodeForm(obj, prefix, out) {
   return out;
 }
 
-async function stripePost(path, body, key, signal) {
+async function stripePost(path, body, key, signal, idempotencyKey) {
   const r = await fetch('https://api.stripe.com' + path, {
     method: 'POST',
-    headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/x-www-form-urlencoded', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) },
     body: encodeForm(body).join('&'),
     signal,
   });
