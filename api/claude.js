@@ -15,6 +15,7 @@ function setCors(req, res) {
   const allowed = new Set([
     'https://veterancareerpath.com',
     'https://www.veterancareerpath.com',
+    'https://mobile-resume-review-app.vercel.app',
   ]);
   const origin = req.headers.origin;
   if (allowed.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
