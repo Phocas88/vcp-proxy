@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const PRICE = 199;
 const PRODUCT = 'vcp-resume-workspace';
 const ORIGINS = new Set(['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app']);
-const sitePath = origin => origin.includes('mobile-resume-review-app') ? '/index.html' : '/resume-workspace/index.html';
+const sitePath = origin => origin.includes('mobile-resume-review-app') ? '/index.html' : '/resumereview/';
 const fail = (status,message) => Object.assign(new Error(message),{status,public:true});
 function reference(db,uid,id) { return db.collection('_privateResumeProgramUsers').doc(uid).collection('builds').doc(id); }
 function checkPayment(s,uid,id,sessionId) {
