@@ -20,7 +20,7 @@ function setCors(req, res) {
   if (allowed.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-vcb-session');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-vcb-session, X-VCP-Firebase-Token');
   res.setHeader('Cache-Control', 'no-store');
 }
 
@@ -76,6 +76,8 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (req.body?.workspace === true) return require('./_lib/resume-workspace').createWorkspaceHandler()(req, res);
+
   const sessionCheck = verifySession(bearerToken(req));
   if (!sessionCheck.valid) {
     return res.status(401).json({ error: 'Valid Veteran Career Path session required' });
@@ -124,3 +126,4 @@ module.exports = async function handler(req, res) {
     clearTimeout(timeout);
   }
 };
+
