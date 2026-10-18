@@ -22,6 +22,11 @@ function createProgramHandler(deps={}) {
    if(!ORIGINS.has(origin))throw fail(403,'Open the Veteran Career Path resume program to continue.');
    if(!String(req.headers['content-type']||'').startsWith('application/json'))throw fail(415,'Send resume text as JSON.');
    if(Buffer.byteLength(JSON.stringify(req.body||{}))>150000)throw fail(413,'That draft is too large.');
+   if(req.body.action==='guest') {
+    if(Object.keys(req.body).some(key=>!['workspace','action'].includes(key)))throw fail(400,'Guest sign-in does not accept resume content.');
+    const result=await require('./resume-guest').guestToken(req,deps);
+    return res.status(result.status).json(result.token ? {token:result.token} : {error:result.error});
+   }
    const token=req.headers['x-vcp-firebase-token'];
    if(typeof token!=='string'||!token)throw fail(401,'Sign in to your free resume-program account. No main-site subscription is required.');
    let identity;try{identity=await (deps.verifyIdToken||(t=>require('./firebase-admin').getAuth().verifyIdToken(t,true)))(token);}catch{throw fail(401,'Your program session expired. Sign in again.');}
