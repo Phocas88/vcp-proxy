@@ -247,3 +247,30 @@ test('provider billing exhaustion is distinguished from transient request rate l
   assert.equal((await s.run('get',{buildId:id})).data.status,'paid');assert.equal(s.checkouts(),1);
  }
 });
+
+test('both provider adapters repair a rejected draft inside the same full-price or free prepaid build',async t=>{
+ const previous={openai:process.env.OPENAI_API_KEY,anthropic:process.env.ANTHROPIC_API_KEY};
+ t.after(()=>{for(const [key,value] of [['OPENAI_API_KEY',previous.openai],['ANTHROPIC_API_KEY',previous.anthropic]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}});
+ let provider,calls,alwaysInvalid;
+ t.mock.method(globalThis,'fetch',async(url,options)=>{
+  const body=JSON.parse(options.body);calls.push(body);
+  const result={...review,revisedResume:alwaysInvalid||calls.length===1?input.resume+'\nInvented 77% improvement.':input.resume};
+  return {ok:true,status:200,json:async()=>provider==='openai'?{output:[{content:[{type:'output_text',text:JSON.stringify(result)}]}]}:{content:[{type:'tool_use',name:'submit_resume_review',input:result}],stop_reason:'tool_use'}};
+ });
+ for(provider of ['openai','anthropic'])for(const amount of [0,PRICE]){
+  process.env.OPENAI_API_KEY=provider==='openai'?'fixture-key':'';process.env.ANTHROPIC_API_KEY='fixture-key';calls=[];alwaysInvalid=false;
+  const s=setup({generate:undefined}),id=await prepaid(s),session=[...s.sessions.values()][0];
+  Object.assign(session,{status:'complete',payment_status:amount===0?'no_payment_required':'paid',amount_total:amount,total_details:{amount_discount:PRICE-amount}});
+  assert.equal((await s.run('bind',{buildId:id,input,consent:true,storageConsent:true})).code,200);
+  const done=await s.run('run',{buildId:id,consent:true});assert.equal(done.code,200);assert.equal(done.data.review.revisedResume,input.resume);assert.equal(calls.length,2);assert.equal(s.checkouts(),1);
+  assert.match(calls[1].instructions||calls[1].system,/previous draft failed/);
+  assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);assert.equal(calls.length,2);
+ }
+ for(provider of ['openai','anthropic']){
+  process.env.OPENAI_API_KEY=provider==='openai'?'fixture-key':'';calls=[];alwaysInvalid=true;
+  const s=setup({generate:undefined}),id=await prepaid(s);s.paid();await s.run('bind',{buildId:id,input,consent:true,storageConsent:true});
+  const failed=await s.run('run',{buildId:id,consent:true});assert.equal(failed.code,503);assert.equal(failed.data.errorCode,'AI_REWRITE_WITHHELD');assert.equal(calls.length,2);assert.ok(!JSON.stringify(failed.data).includes('77%'));
+  const saved=(await s.run('get',{buildId:id})).data;assert.equal(saved.status,'paid');assert.equal(saved.review,null);assert.equal(saved.input.resume,input.resume);
+  alwaysInvalid=false;assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);assert.equal(calls.length,3);assert.equal(s.checkouts(),1);
+ }
+});

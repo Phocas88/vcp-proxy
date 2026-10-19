@@ -21,7 +21,7 @@ const DIAGNOSTIC_MESSAGES={
  AI_TIMEOUT:'The AI provider did not finish before the request timed out.',
  AI_INVALID_RESPONSE:'The AI provider returned a result the resume builder could not read.',
  AI_OUTPUT_TRUNCATED:'The AI response stopped before the complete resume was returned.',
- AI_REWRITE_WITHHELD:'The AI draft was withheld because it did not pass the resume fact-preservation checks.',
+ AI_REWRITE_WITHHELD:'The AI could not produce a complete rewrite within the supplied numeric facts and size limit. Your original resume is unchanged. Retry this existing build from purchase history.',
  BUILD_STORAGE_UNAVAILABLE:'The resume service could not reserve this build for processing.',
  RESULT_STORAGE_UNAVAILABLE:'The resume service could not save the generated result.',
  CHECKOUT_VERIFICATION_UNAVAILABLE:'The checkout service could not be reached to verify this build.'
@@ -201,15 +201,16 @@ function createProgramHandler(deps={}) {
 }
 async function generate(input){
  const mod=await import('./resume-workspace/review.mjs');
- // Use the configured OpenAI API when supplied; the existing production service
- // currently uses Anthropic. Both providers are disclosed in the program notice.
+ try{
+ // Prefer the configured OpenAI API; retain Anthropic for deployments using it.
+ // Both providers use the same guarded repair and are disclosed in the notice.
  if(process.env.OPENAI_API_KEY){
-  try{return await mod.reviewResume(input,{apiKey:process.env.OPENAI_API_KEY});}
-  catch(error){if(error instanceof mod.ReviewError)throw diagnostic(DIAGNOSTIC_CODES.has(error.diagnosticCode)?error.diagnosticCode:'AI_INVALID_RESPONSE');throw error;}
+  return await mod.reviewResume(input,{apiKey:process.env.OPENAI_API_KEY});
  }
  const {anthropicRequest,DEFAULT_MODEL}=require('./anthropic');
+ return await mod.reviewWithRecovery(input,async(validated,{instructions,signal})=>{
  let response;
- try{response=await anthropicRequest({model:DEFAULT_MODEL,max_tokens:12000,system:mod.instructions,messages:[{role:'user',content:JSON.stringify(input)}],tools:[{name:'submit_resume_review',description:'Return the complete factual resume rewrite and editorial review.',input_schema:mod.reviewSchema}],tool_choice:{type:'tool',name:'submit_resume_review'}},{signal:AbortSignal.timeout(150000)});}
+ try{response=await anthropicRequest({model:DEFAULT_MODEL,max_tokens:12000,system:instructions,messages:[{role:'user',content:JSON.stringify(validated)}],tools:[{name:'submit_resume_review',description:'Return the complete factual resume rewrite and editorial review.',input_schema:mod.reviewSchema}],tool_choice:{type:'tool',name:'submit_resume_review'}},{signal});}
  catch(error){throw diagnostic(['AbortError','TimeoutError'].includes(error.name)?'AI_TIMEOUT':'AI_PROVIDER_UNAVAILABLE');}
  if(!response.ok){
   const error=response.data?.error;
@@ -219,8 +220,9 @@ async function generate(input){
   throw diagnostic(({401:'AI_AUTHENTICATION',403:'AI_ACCESS',429:'AI_QUOTA_OR_RATE_LIMIT'}[response.status])||(response.status>=500?'AI_PROVIDER_UNAVAILABLE':'AI_REQUEST_REJECTED'));
  }
  if(response.data?.stop_reason==='max_tokens')throw diagnostic('AI_OUTPUT_TRUNCATED');
- try{return mod.normalizeReview(response.data?.content?.find(x=>x.type==='tool_use'&&x.name==='submit_resume_review')?.input,input.resume,input.additionalDetails);}
- catch{throw diagnostic('AI_INVALID_RESPONSE');}
+ return response.data?.content?.find(x=>x.type==='tool_use'&&x.name==='submit_resume_review')?.input;
+ });
+ }catch(error){if(error instanceof mod.ReviewError)throw diagnostic(DIAGNOSTIC_CODES.has(error.diagnosticCode)?error.diagnosticCode:'AI_INVALID_RESPONSE');throw error;}
 }
 module.exports={createProgramHandler,checkPayment,PRICE,PRODUCT,ORIGINS};
 
