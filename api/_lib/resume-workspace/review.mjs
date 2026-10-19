@@ -5,9 +5,10 @@ export const MAX_RESUME_LENGTH = 20000;
 export const MAX_JOB_LENGTH = 8000;
 
 export class ReviewError extends Error {
-  constructor(message, status = 400) {
+  constructor(message, status = 400, diagnosticCode = 'AI_INVALID_RESPONSE') {
     super(message);
     this.status = status;
+    this.diagnosticCode = diagnosticCode;
   }
 }
 
@@ -93,7 +94,7 @@ Application types: private means a conventional concise resume. government means
 
 export async function reviewResume(input, { apiKey, model = 'gpt-4.1-mini', fetcher = fetch } = {}) {
   const validated = validateInput(input);
-  if (!apiKey || !apiKey.trim()) throw new ReviewError('AI review is not connected yet. You can try the sample review, edit your resume, and export it.', 503);
+  if (!apiKey || !apiKey.trim()) throw new ReviewError('AI review is not connected yet.', 503, 'AI_AUTHENTICATION');
   let response;
   try {
     response = await fetcher('https://api.openai.com/v1/responses', {
@@ -102,8 +103,8 @@ export async function reviewResume(input, { apiKey, model = 'gpt-4.1-mini', fetc
       body: JSON.stringify({ model, store: false, instructions, input: JSON.stringify(validated), max_output_tokens: 12000, text: { format: { type: 'json_schema', name: 'resume_review', strict: true, schema: reviewSchema } } }),
       signal: AbortSignal.timeout(120000)
     });
-  } catch {
-    throw new ReviewError('The review service did not respond. Your resume is unchanged; please try again.', 504);
+  } catch (error) {
+    throw new ReviewError('The review service did not respond. Your resume is unchanged; please try again.', 504, ['AbortError','TimeoutError'].includes(error.name)?'AI_TIMEOUT':'AI_PROVIDER_UNAVAILABLE');
   }
   if (!response.ok) {
     if (response.status === 429) {
@@ -118,18 +119,18 @@ export async function reviewResume(input, { apiKey, model = 'gpt-4.1-mini', fetc
         ['insufficient_quota', 'AI reviews are paused because the service has insufficient API credits or has reached a spending or usage limit. The site owner needs to check API billing and limits. Your resume is unchanged.']
       ]);
       const quotaMessage = quotaMessages.get(error?.code);
-      if (quotaMessage) throw new ReviewError(quotaMessage, 503);
+      if (quotaMessage) throw new ReviewError(quotaMessage, 503, 'AI_QUOTA_OR_RATE_LIMIT');
       if (['rate_limit_exceeded', 'slow_down'].includes(error?.code) || error?.type === 'rate_limit_error') {
-        throw new ReviewError('Too many AI review requests right now. Wait a minute before trying again. Your resume is unchanged.', 503);
+        throw new ReviewError('Too many AI review requests right now. Wait a minute before trying again. Your resume is unchanged.', 503, 'AI_QUOTA_OR_RATE_LIMIT');
       }
-      if (error?.type === 'insufficient_quota') throw new ReviewError(quotaMessages.get('insufficient_quota'), 503);
-      throw new ReviewError('The review service is busy or its usage limit has been reached. Please try again later.', 503);
+      if (error?.type === 'insufficient_quota') throw new ReviewError(quotaMessages.get('insufficient_quota'), 503, 'AI_QUOTA_OR_RATE_LIMIT');
+      throw new ReviewError('The review service is busy or its usage limit has been reached. Please try again later.', 503, 'AI_QUOTA_OR_RATE_LIMIT');
     }
-    throw new ReviewError('AI review is temporarily unavailable. Your resume has not been changed.', 502);
+    throw new ReviewError('AI review is temporarily unavailable. Your resume has not been changed.', 502, ({401:'AI_AUTHENTICATION',403:'AI_ACCESS'}[response.status])||(response.status>=500?'AI_PROVIDER_UNAVAILABLE':'AI_REQUEST_REJECTED'));
   }
   let payload;
   try { payload = await response.json(); } catch { throw new ReviewError('We could not read this review. Please try again.', 502); }
-  if (payload.status === 'incomplete') throw new ReviewError('The review could not finish. Try a shorter resume.', 502);
+  if (payload.status === 'incomplete') throw new ReviewError('The review could not finish. Try a shorter resume.', 502, 'AI_OUTPUT_TRUNCATED');
   const content = (payload.output ?? []).flatMap(item => item.content ?? []);
   const output = content.filter(item => item.type === 'output_text').map(item => item.text).join('');
   let data;

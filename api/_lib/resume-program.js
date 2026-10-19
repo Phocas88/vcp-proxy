@@ -9,6 +9,8 @@ const PRODUCT = 'vcp-resume-workspace';
 const ORIGINS = new Set(['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app']);
 const sitePath = origin => origin.includes('mobile-resume-review-app') ? '/index.html' : '/resumereview/';
 const fail = (status,message) => Object.assign(new Error(message),{status,public:true});
+const DIAGNOSTIC_CODES=new Set(['AI_AUTHENTICATION','AI_ACCESS','AI_QUOTA_OR_RATE_LIMIT','AI_PROVIDER_UNAVAILABLE','AI_REQUEST_REJECTED','AI_TIMEOUT','AI_INVALID_RESPONSE','AI_OUTPUT_TRUNCATED','AI_REWRITE_WITHHELD']);
+const diagnostic=(code)=>Object.assign(new Error('Resume build failed'),{diagnosticCode:code});
 function reference(db,uid,id) { return db.collection('_privateResumeProgramUsers').doc(uid).collection('builds').doc(id); }
 function checkPayment(s,uid,id,sessionId) {
  // Trust only the server-created Session retrieved directly from Stripe. A zero
@@ -26,7 +28,7 @@ function createProgramHandler(deps={}) {
  const now=deps.now||Date.now;
  return async function(req,res){
   res.setHeader('Cache-Control','no-store');
-  let ref, lease;
+  let ref, lease, stage='request';
   try {
    const origin=req.headers.origin;
    if(!ORIGINS.has(origin))throw fail(403,'Open the Veteran Career Path resume program to continue.');
@@ -92,21 +94,25 @@ function createProgramHandler(deps={}) {
    if(req.body.consent!==true)throw fail(400,'Agree to AI processing before building.');
    if(data.status==='complete')return res.status(200).json({id,review:data.result});
    if(!key||!data.sessionId)throw fail(402,'Purchase this build for $1.99 first. No main-site subscription is required.');
+   stage='checkout_verification';
    const checkout=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'?expand[]=payment_intent.latest_charge',key,AbortSignal.timeout(12000));
    if(!checkPayment(checkout,uid,id,data.sessionId))throw fail(402,'Payment has not completed or could not be verified. Resume the existing checkout from purchase history; do not pay again if your card was charged.');
-   lease=crypto.randomUUID();
+   stage='build_storage';lease=crypto.randomUUID();
    const prior=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status==='complete')return d.result;if(d.status==='deleted')throw fail(410,'This build was deleted.');if(d.status==='running'&&d.leaseUntil>now())throw fail(409,'This build is already running. Wait a moment, then reopen it from purchase history.');tx.update(ref,{status:'running',...settlement(checkout),lease,leaseUntil:now()+210000,updatedAt:now()});return null;});
    if(prior){lease=null;return res.status(200).json({id,review:prior});}
    // Quota applies only to actual AI executions. Failed executions retain the purchase.
    if(deps.quota&&!await deps.quota(uid))throw fail(429,'Too many AI attempts. Wait 15 minutes; your purchase is still available.');
+   stage='ai_build';
    const review=await (deps.generate||generate)(data.input);
-   if (!review || typeof review.revisedResume !== 'string' || !review.revisedResume.trim()) throw new Error('incomplete_rewrite');
+   if (!review || typeof review.revisedResume !== 'string' || !review.revisedResume.trim()) throw diagnostic('AI_REWRITE_WITHHELD');
+   stage='result_storage';
    await db.runTransaction(async tx=>{const s=await tx.get(ref);if(s.data().lease!==lease)throw fail(409,'A recovery attempt is already handling this build. Open it from purchase history.');tx.update(ref,{status:'complete',result:review,lease:null,leaseUntil:0,updatedAt:now()});});
    lease=null;return res.status(200).json({id,review});
   }catch(e){
    if(lease&&ref){try{await (deps.db||require('./firebase-admin').getDb()).runTransaction(async tx=>{const s=await tx.get(ref);if(s.data()?.lease===lease)tx.update(ref,{status:'paid',lease:null,leaseUntil:0,updatedAt:now()});});}catch{/* An expired execution lease is recoverable. */}}
    // Never log resumes, results, Stripe responses, credentials, or identity tokens.
-   return res.status(e.public&&e.status<500?e.status:503).json({error:e.public&&e.status<500?e.message:'The service could not complete this action. Your purchase remains recoverable in purchase history; no second payment is needed for a failed build.'});
+   const errorCode=DIAGNOSTIC_CODES.has(e.diagnosticCode)?e.diagnosticCode:({checkout_verification:'CHECKOUT_VERIFICATION_UNAVAILABLE',build_storage:'BUILD_STORAGE_UNAVAILABLE',ai_build:'AI_BUILD_UNAVAILABLE',result_storage:'RESULT_STORAGE_UNAVAILABLE'}[stage]||'SERVICE_UNAVAILABLE');
+   return res.status(e.public&&e.status<500?e.status:503).json({error:e.public&&e.status<500?e.message:'The service could not complete this action. Your purchase remains recoverable in purchase history; no second payment is needed for a failed build.',errorCode});
   }
  };
 }
@@ -114,10 +120,17 @@ async function generate(input){
  const mod=await import('./resume-workspace/review.mjs');
  // Use the configured OpenAI API when supplied; the existing production service
  // currently uses Anthropic. Both providers are disclosed in the program notice.
- if(process.env.OPENAI_API_KEY)return mod.reviewResume(input,{apiKey:process.env.OPENAI_API_KEY});
+ if(process.env.OPENAI_API_KEY){
+  try{return await mod.reviewResume(input,{apiKey:process.env.OPENAI_API_KEY});}
+  catch(error){if(error instanceof mod.ReviewError)throw diagnostic(DIAGNOSTIC_CODES.has(error.diagnosticCode)?error.diagnosticCode:'AI_INVALID_RESPONSE');throw error;}
+ }
  const {anthropicRequest,DEFAULT_MODEL}=require('./anthropic');
- const response=await anthropicRequest({model:DEFAULT_MODEL,max_tokens:12000,system:mod.instructions,messages:[{role:'user',content:JSON.stringify(input)}],tools:[{name:'submit_resume_review',description:'Return the complete factual resume rewrite and editorial review.',input_schema:mod.reviewSchema}],tool_choice:{type:'tool',name:'submit_resume_review'}},{signal:AbortSignal.timeout(150000)});
- if(!response.ok||response.data?.stop_reason==='max_tokens')throw new Error('provider_unavailable');
- return mod.normalizeReview(response.data?.content?.find(x=>x.type==='tool_use'&&x.name==='submit_resume_review')?.input,input.resume,input.additionalDetails);
+ let response;
+ try{response=await anthropicRequest({model:DEFAULT_MODEL,max_tokens:12000,system:mod.instructions,messages:[{role:'user',content:JSON.stringify(input)}],tools:[{name:'submit_resume_review',description:'Return the complete factual resume rewrite and editorial review.',input_schema:mod.reviewSchema}],tool_choice:{type:'tool',name:'submit_resume_review'}},{signal:AbortSignal.timeout(150000)});}
+ catch(error){throw diagnostic(['AbortError','TimeoutError'].includes(error.name)?'AI_TIMEOUT':'AI_PROVIDER_UNAVAILABLE');}
+ if(!response.ok)throw diagnostic(({401:'AI_AUTHENTICATION',403:'AI_ACCESS',429:'AI_QUOTA_OR_RATE_LIMIT'}[response.status])||(response.status>=500?'AI_PROVIDER_UNAVAILABLE':'AI_REQUEST_REJECTED'));
+ if(response.data?.stop_reason==='max_tokens')throw diagnostic('AI_OUTPUT_TRUNCATED');
+ try{return mod.normalizeReview(response.data?.content?.find(x=>x.type==='tool_use'&&x.name==='submit_resume_review')?.input,input.resume,input.additionalDetails);}
+ catch{throw diagnostic('AI_INVALID_RESPONSE');}
 }
 module.exports={createProgramHandler,checkPayment,PRICE,PRODUCT,ORIGINS};
