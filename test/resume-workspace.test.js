@@ -115,3 +115,24 @@ test('old completed full-price checkout is recovered without replacement',async(
  const r=await s.run('prepare',{input,consent:true,storageConsent:true});
  assert.equal(r.data.status,'paid');assert.equal(s.checkouts(),1);assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);
 });
+
+test('real provider adapters classify failures safely and the same free build remains retryable',async t=>{
+ const previous={openai:process.env.OPENAI_API_KEY,anthropic:process.env.ANTHROPIC_API_KEY};
+ t.after(()=>{for(const [key,value] of [['OPENAI_API_KEY',previous.openai],['ANTHROPIC_API_KEY',previous.anthropic]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}});
+ let provider,status,failed=true;
+ t.mock.method(globalThis,'fetch',async(url,options)=>{
+  assert.equal(url,provider==='openai'?'https://api.openai.com/v1/responses':'https://api.anthropic.com/v1/messages');
+  const body=JSON.parse(options.body);assert.equal(body.max_output_tokens||body.max_tokens,12000);
+  if(failed)return {ok:false,status,json:async()=>({error:{type:'private-provider-type',message:'private-fragment synthetic-resume-content',code:'private-code'}})};
+  return {ok:true,status:200,json:async()=>provider==='openai'?{output:[{content:[{type:'output_text',text:JSON.stringify(review)}]}]}:{content:[{type:'tool_use',name:'submit_resume_review',input:review}],stop_reason:'tool_use'}};
+ });
+ for(provider of ['anthropic','openai'])for(const [http,expected] of [[401,'AI_AUTHENTICATION'],[403,'AI_ACCESS'],[429,'AI_QUOTA_OR_RATE_LIMIT'],[500,'AI_PROVIDER_UNAVAILABLE']]){
+  process.env.OPENAI_API_KEY=provider==='openai'?'fixture-key':'';process.env.ANTHROPIC_API_KEY='fixture-key';status=http;failed=true;
+  const s=setup({generate:undefined}),id=await s.prepare(),session=[...s.sessions.values()][0];
+  Object.assign(session,{status:'complete',payment_status:'paid',amount_total:0,total_details:{amount_discount:PRICE},payment_intent:null});
+  const error=await s.run('run',{buildId:id,consent:true});assert.equal(error.code,503);assert.equal(error.data.errorCode,expected);
+  assert.ok(!JSON.stringify(error.data).includes('private-fragment'));assert.ok(!JSON.stringify(error.data).includes('synthetic-resume-content'));
+  assert.equal((await s.run('get',{buildId:id})).data.status,'paid');
+  failed=false;assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);assert.equal(s.checkouts(),1);
+ }
+});
