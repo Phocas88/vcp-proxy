@@ -269,8 +269,18 @@ test('both provider adapters repair a rejected draft inside the same full-price 
  for(provider of ['openai','anthropic']){
   process.env.OPENAI_API_KEY=provider==='openai'?'fixture-key':'';calls=[];alwaysInvalid=true;
   const s=setup({generate:undefined}),id=await prepaid(s);s.paid();await s.run('bind',{buildId:id,input,consent:true,storageConsent:true});
-  const failed=await s.run('run',{buildId:id,consent:true});assert.equal(failed.code,503);assert.equal(failed.data.errorCode,'AI_REWRITE_WITHHELD');assert.equal(calls.length,2);assert.ok(!JSON.stringify(failed.data).includes('77%'));
-  const saved=(await s.run('get',{buildId:id})).data;assert.equal(saved.status,'paid');assert.equal(saved.review,null);assert.equal(saved.input.resume,input.resume);
+  const failed=await s.run('run',{buildId:id,consent:true});assert.equal(failed.code,503);assert.equal(failed.data.errorCode,'AI_REWRITE_WITHHELD');assert.equal(calls.length,2);
+  assert.deepEqual(failed.data.validationDetails.unsupportedNumbers,['77%']);assert.match(failed.data.error,/numeric details/);assert.ok(!JSON.stringify(failed.data).includes('Invented 77% improvement.'));assert.ok(!JSON.stringify(failed.data).includes(input.resume));
+  const saved=(await s.run('get',{buildId:id})).data;assert.equal(saved.status,'paid');assert.equal(saved.review,null);assert.equal(saved.input.resume,input.resume);assert.deepEqual(saved.lastError.validationDetails,failed.data.validationDetails);
+  assert.equal((await s.run('get',{buildId:id},{'x-vcp-firebase-token':'owner-b'})).code,404);
   alwaysInvalid=false;assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);assert.equal(calls.length,3);assert.equal(s.checkouts(),1);
  }
+});
+
+test('rewrite failure details disclose only bounded numeric reasons to the authenticated owner',async()=>{
+ const s=setup({generate:async()=>{throw Object.assign(new Error('private-provider-message'),{diagnosticCode:'AI_REWRITE_WITHHELD',validationDetails:{unsupportedNumbers:['77%','<script>','private-rejected-text','9'.repeat(41)],characters:20001,overLength:true,rejectedResume:'private-draft'}});}});
+ const id=await s.prepare();s.paid();const failed=await s.run('run',{buildId:id,consent:true});
+ assert.equal(failed.code,503);assert.deepEqual(failed.data.validationDetails,{reasons:['length_limit','unsupported_numbers'],unsupportedNumbers:['77%'],characters:20001,characterLimit:20000});
+ for(const hidden of ['private-provider-message','<script>','private-rejected-text','private-draft'])assert.ok(!JSON.stringify(failed.data).includes(hidden));
+ assert.equal((await s.run('get',{buildId:id},{'x-vcp-firebase-token':'owner-b'})).code,404);assert.equal(s.checkouts(),1);
 });

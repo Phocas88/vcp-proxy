@@ -5,6 +5,17 @@ const source='ALEX EXAMPLE\nSupply specialist, Example Employer\nMaintained 1,00
 const review={score:70,summary:'Use clearer duty statements.',strengths:[],findings:[],suggestions:[],nextSteps:[],rewriteNotes:[],revisedResume:source};
 const mod=()=>import('../api/_lib/resume-workspace/review.mjs');
 
+test('percentage ranges retain the same units when the percent sign is made explicit on both endpoints',async()=>{
+ const {normalizeReview}=await mod();
+ const original='ALEX EXAMPLE\nStore Manager, Example Restaurant\nManaged 12 employees and maintained inspection results of 98-99%. Followed food safety procedures and reconciled inventory.';
+ for(const range of ['98%–99%','98–99 percent','98 percent to 99 percent','98 to 99%','98% - 99','between 98 and 99 percent','between 98% and 99%']){
+  const proposal=original.replace('98-99%',range);
+  assert.equal(normalizeReview({...review,revisedResume:proposal},original).revisedResume,proposal,range);
+ }
+ for(const range of ['95%–99%','98K–99K','98–100%','98–99'])assert.equal(normalizeReview({...review,revisedResume:original.replace('98-99%',range)},original).revisedResume,'',range);
+ assert.equal(normalizeReview({...review,revisedResume:original.replace('98-99%','98%–99%')},original.replace('98-99%','98–99')).revisedResume,'','A range without a supplied percentage unit cannot gain one');
+});
+
 test('numeric checks allow thousands separators and percentage spacing without accepting new values or units',async()=>{
  const {normalizeReview}=await mod();
  const formatted=source.replace('1,000','1000').replace('98 %','98%');
@@ -35,7 +46,7 @@ test('empty and overlong rewrites can recover but repeated rejection never retur
  for(const first of ['',source+'x'.repeat(MAX_RESUME_LENGTH)]){
   let calls=0;assert.equal((await reviewWithRecovery({resume:source},async()=>({...review,revisedResume:++calls===1?first:source}))).revisedResume,source);assert.equal(calls,2);
  }
- let calls=0;await assert.rejects(reviewWithRecovery({resume:source},async()=>{calls++;return {...review,revisedResume:source+'\nInvented 77% improvement.'};}),e=>e.diagnosticCode==='AI_REWRITE_WITHHELD');assert.equal(calls,2);
+ let calls=0;await assert.rejects(reviewWithRecovery({resume:source},async()=>{calls++;return {...review,revisedResume:source+'\nInvented 77% improvement.'};}),e=>e.diagnosticCode==='AI_REWRITE_WITHHELD'&&e.validationDetails.unsupportedNumbers.includes('77%'));assert.equal(calls,2);
 });
 
 test('authentication failures, malformed reviews and cancellation are not retried as rewrite repairs',async()=>{
