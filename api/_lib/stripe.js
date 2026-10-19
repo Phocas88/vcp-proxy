@@ -1,9 +1,9 @@
 // Shared Stripe REST helpers (no SDK — matches the proxy's zero-dependency pattern).
 const crypto = require('crypto');
 
-async function stripeGet(path, key, signal) {
+async function stripeGet(path, key, signal, apiVersion) {
   const r = await fetch('https://api.stripe.com' + path, {
-    headers: { Authorization: 'Bearer ' + key },
+    headers: { Authorization: 'Bearer ' + key, ...(apiVersion ? { 'Stripe-Version': apiVersion } : {}) },
     signal,
   });
   const d = await r.json();
@@ -32,10 +32,10 @@ function encodeForm(obj, prefix, out) {
   return out;
 }
 
-async function stripePost(path, body, key, signal, idempotencyKey) {
+async function stripePost(path, body, key, signal, idempotencyKey, apiVersion) {
   const r = await fetch('https://api.stripe.com' + path, {
     method: 'POST',
-    headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/x-www-form-urlencoded', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) },
+    headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/x-www-form-urlencoded', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}), ...(apiVersion ? { 'Stripe-Version': apiVersion } : {}) },
     body: encodeForm(body).join('&'),
     signal,
   });
