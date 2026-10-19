@@ -136,3 +136,21 @@ test('real provider adapters classify failures safely and the same free build re
   failed=false;assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);assert.equal(s.checkouts(),1);
  }
 });
+
+test('provider billing exhaustion is distinguished from transient request rate limits',async t=>{
+ const oldOpenAI=process.env.OPENAI_API_KEY,oldAnthropic=process.env.ANTHROPIC_API_KEY;
+ t.after(()=>{for(const [key,value] of [['OPENAI_API_KEY',oldOpenAI],['ANTHROPIC_API_KEY',oldAnthropic]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}});
+ let error,http;
+ t.mock.method(globalThis,'fetch',async()=>({ok:false,status:http,json:async()=>({error})}));
+ for(const [provider,status,body,expected] of [
+  ['anthropic',400,{type:'invalid_request_error',message:'Your credit balance is too low to access the API. private-fragment'},'AI_BILLING_LIMIT'],
+  ['anthropic',429,{type:'rate_limit_error',message:'private-fragment'},'AI_RATE_LIMIT'],
+  ['openai',429,{code:'insufficient_quota',message:'private-fragment'},'AI_BILLING_LIMIT'],
+  ['openai',429,{code:'rate_limit_exceeded',message:'private-fragment'},'AI_RATE_LIMIT']
+ ]){
+  process.env.OPENAI_API_KEY=provider==='openai'?'fixture-key':'';process.env.ANTHROPIC_API_KEY='fixture-key';http=status;error=body;
+  const s=setup({generate:undefined}),id=await s.prepare();s.paid();
+  const r=await s.run('run',{buildId:id,consent:true});assert.equal(r.code,503);assert.equal(r.data.errorCode,expected);assert.ok(!JSON.stringify(r.data).includes('private-fragment'));
+  assert.equal((await s.run('get',{buildId:id})).data.status,'paid');assert.equal(s.checkouts(),1);
+ }
+});
