@@ -3,15 +3,23 @@
 // existing Firestore default-deny rules exclude this root collection.
 const crypto = require('node:crypto');
 const PRICE = 199;
+// No-cost Checkout requires 2023-08-16 or later. Scope this version to this program.
+const STRIPE_API_VERSION = '2024-06-20';
 const PRODUCT = 'vcp-resume-workspace';
 const ORIGINS = new Set(['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app']);
 const sitePath = origin => origin.includes('mobile-resume-review-app') ? '/index.html' : '/resumereview/';
 const fail = (status,message) => Object.assign(new Error(message),{status,public:true});
 function reference(db,uid,id) { return db.collection('_privateResumeProgramUsers').doc(uid).collection('builds').doc(id); }
 function checkPayment(s,uid,id,sessionId) {
- return s?.id===sessionId && s.mode==='payment' && s.status==='complete' && s.payment_status==='paid' && s.amount_total===PRICE && s.currency==='usd' && s.client_reference_id===id && s.metadata?.uid===uid && s.metadata?.buildId===id && s.metadata?.product===PRODUCT && !s.payment_intent?.latest_charge?.refunded;
+ // Trust only the server-created Session retrieved directly from Stripe. A zero
+ // total alone is not proof of a valid discount or a completed checkout.
+ const total=s?.amount_total, discount=s?.total_details?.amount_discount;
+ const validTotal=Number.isInteger(total) && total>=0 && total<=PRICE && s.amount_subtotal===PRICE && Number.isInteger(discount) && discount===PRICE-total;
+ const settled=total===0 ? s?.payment_status==='no_payment_required' : s?.payment_status==='paid';
+ return s?.id===sessionId && s.mode==='payment' && s.status==='complete' && validTotal && settled && s.currency==='usd' && s.client_reference_id===id && s.metadata?.uid===uid && s.metadata?.buildId===id && s.metadata?.product===PRODUCT && !s.payment_intent?.latest_charge?.refunded;
 }
-function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,amount:PRICE,currency:'usd',...(details?{input:data.input,review:data.result||null}:{} )};}
+function settlement(s){return {amount:s.amount_total,discountAmount:s.total_details.amount_discount};}
+function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',...(details?{input:data.input,review:data.result||null}:{} )};}
 function createProgramHandler(deps={}) {
  const now=deps.now||Date.now;
  return async function(req,res){
@@ -33,7 +41,8 @@ function createProgramHandler(deps={}) {
    if(!identity?.uid)throw fail(401,'Sign in again.');
    const uid=identity.uid;const db=deps.db||require('./firebase-admin').getDb();
    const action=req.body.action||'run';
-   const stripe=deps.stripe||require('./stripe');const key=deps.stripeKey||process.env.STRIPE_SECRET_KEY;
+   const client=deps.stripe||require('./stripe');const key=deps.stripeKey||process.env.STRIPE_SECRET_KEY;
+   const stripe={stripeGet:(path,key,signal)=>client.stripeGet(path,key,signal,STRIPE_API_VERSION),stripePost:(path,body,key,signal,idempotency)=>client.stripePost(path,body,key,signal,idempotency,STRIPE_API_VERSION)};
    if(action==='list'){
     const snap=await db.collection('_privateResumeProgramUsers').doc(uid).collection('builds').orderBy('createdAt','desc').limit(50).get();
     return res.status(200).json({builds:snap.docs.filter(d=>d.data().status!=='deleted').map(d=>publicBuild(d.id,d.data()))});
@@ -49,16 +58,21 @@ function createProgramHandler(deps={}) {
     let expired=false;
     if(data.sessionId){
      const s=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId),key,AbortSignal.timeout(12000));
-     if(checkPayment(s,uid,id,data.sessionId)){await ref.update({status:'paid',updatedAt:now()});return res.status(200).json({id,status:'paid'});}
-     if(s.status==='open'&&s.url)return res.status(200).json({id,status:'awaiting_payment',url:s.url});
+     if(checkPayment(s,uid,id,data.sessionId)){await ref.update({status:'paid',...settlement(s),updatedAt:now()});return res.status(200).json({id,status:'paid',...settlement(s)});}
+     if(s.status==='open'&&s.url){
+      if(s.allow_promotion_codes===true)return res.status(200).json({id,status:'awaiting_payment',url:s.url});
+      // Old unpaid sessions cannot have this setting updated. Expire them before
+      // replacing them, so returning customers can enter a code as well.
+      await stripe.stripePost('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'/expire',{},key,AbortSignal.timeout(12000));
+     }
      if(s.status==='complete')throw fail(402,'Payment is still processing or could not be verified. Check your purchase history before trying again.');
      expired=true;
     }
     if(expired||now()-data.createdAt>23*60*60*1000){data=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status!=='awaiting_payment')throw fail(409,'Build state changed. Open purchase history.');if(d.sessionId===data.sessionId&&d.attempt===data.attempt){const next={...d,attempt:d.attempt+1,sessionId:null,checkoutUrl:null,createdAt:now()};tx.set(ref,next);return next;}return d;});}
     if(deps.checkoutQuota&&!await deps.checkoutQuota(uid))throw fail(429,'Several checkouts have been requested. Wait 15 minutes before opening another; existing paid builds remain available.');
     const base=data.origin+sitePath(data.origin);
-    const body={mode:'payment',client_reference_id:id,metadata:{product:PRODUCT,uid,buildId:id},payment_intent_data:{metadata:{product:PRODUCT,uid,buildId:id}},payment_method_types:['card'],line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:PRICE,product_data:{name:'Veteran Career Path — one AI resume build',description:'One fact-preserving AI build. Formatting and downloads included. No subscription.'}}}],success_url:base+'?build='+id+'&checkout=success',cancel_url:base+'?build='+id+'&checkout=canceled'};
-    const session=await stripe.stripePost('/v1/checkout/sessions',body,key,AbortSignal.timeout(12000),'resume-program-'+id+'-'+data.attempt);
+    const body={mode:'payment',allow_promotion_codes:true,client_reference_id:id,metadata:{product:PRODUCT,uid,buildId:id},payment_intent_data:{metadata:{product:PRODUCT,uid,buildId:id}},payment_method_types:['card'],line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:PRICE,product_data:{name:'Veteran Career Path — one AI resume build',description:'One fact-preserving AI build. Formatting and downloads included. No subscription.'}}}],success_url:base+'?build='+id+'&checkout=success',cancel_url:base+'?build='+id+'&checkout=canceled'};
+    const session=await stripe.stripePost('/v1/checkout/sessions',body,key,AbortSignal.timeout(12000),'resume-program-promo-v1-'+id+'-'+data.attempt);
     if(!session.id||!/^https:\/\/checkout\.stripe\.com\//.test(session.url||''))throw fail(502,'Stripe checkout could not open. You have not been charged by this request.');
     await ref.update({sessionId:session.id,checkoutUrl:session.url,updatedAt:now()});
     return res.status(200).json({id,status:'awaiting_payment',url:session.url});
@@ -79,7 +93,7 @@ function createProgramHandler(deps={}) {
    const checkout=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'?expand[]=payment_intent.latest_charge',key,AbortSignal.timeout(12000));
    if(!checkPayment(checkout,uid,id,data.sessionId))throw fail(402,'Payment has not completed or could not be verified. Resume the existing checkout from purchase history; do not pay again if your card was charged.');
    lease=crypto.randomUUID();
-   const prior=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status==='complete')return d.result;if(d.status==='deleted')throw fail(410,'This build was deleted.');if(d.status==='running'&&d.leaseUntil>now())throw fail(409,'This build is already running. Wait a moment, then reopen it from purchase history.');tx.update(ref,{status:'running',lease,leaseUntil:now()+210000,updatedAt:now()});return null;});
+   const prior=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status==='complete')return d.result;if(d.status==='deleted')throw fail(410,'This build was deleted.');if(d.status==='running'&&d.leaseUntil>now())throw fail(409,'This build is already running. Wait a moment, then reopen it from purchase history.');tx.update(ref,{status:'running',...settlement(checkout),lease,leaseUntil:now()+210000,updatedAt:now()});return null;});
    if(prior){lease=null;return res.status(200).json({id,review:prior});}
    // Quota applies only to actual AI executions. Failed executions retain the purchase.
    if(deps.quota&&!await deps.quota(uid))throw fail(429,'Too many AI attempts. Wait 15 minutes; your purchase is still available.');
