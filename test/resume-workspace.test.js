@@ -48,13 +48,42 @@ test('Stripe-confirmed full and partial discounts unlock only their original own
  }
 });
 
+test('a completed fully discounted order reported paid recovers without another checkout or coupon',async()=>{
+ for(const recoverThroughPrepare of [false,true]){
+  const s=setup(),id=await s.prepare(),session=[...s.sessions.values()][0];
+  Object.assign(session,{status:'complete',payment_status:'paid',amount_total:0,total_details:{amount_discount:PRICE,amount_shipping:0,amount_tax:0},payment_intent:null});
+  assert.equal(checkPayment(session,'owner-a',id,session.id),true);
+  if(recoverThroughPrepare){
+   const recovered=await s.run('prepare',{input,consent:true,storageConsent:true});
+   assert.equal(recovered.data.status,'paid');assert.equal(recovered.data.amount,0);assert.equal(recovered.data.url,undefined);
+  }
+  const done=await s.run('run',{buildId:id,consent:true});
+  assert.equal(done.code,200);assert.equal(done.data.review.revisedResume,input.resume);
+  assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);
+  const saved=(await s.run('get',{buildId:id})).data;
+  assert.equal(saved.amount,0);assert.equal(saved.discountAmount,PRICE);
+  assert.equal(s.calls(),1);assert.equal(s.checkouts(),1);
+ }
+});
+
+test('a positive total still requires paid status and zero totals still require a settled complete order',async()=>{
+ const s=setup(),id=await s.prepare(),session=[...s.sessions.values()][0];
+ for(const amount of [0,100,PRICE]){
+  const order={...session,amount_total:amount,total_details:{amount_discount:PRICE-amount},status:'complete',payment_intent:null};
+  for(const status of ['paid','no_payment_required','unpaid',null,'unknown']){
+   assert.equal(checkPayment({...order,payment_status:status},'owner-a',id,session.id),status==='paid'||(amount===0&&status==='no_payment_required'));
+  }
+  for(const state of ['open','expired'])assert.equal(checkPayment({...order,status:state,payment_status:'paid'},'owner-a',id,session.id),false);
+ }
+});
+
 test('incomplete, forged or inconsistent zero and discounted totals never grant a build',async()=>{
  const s=setup(),id=await s.prepare(),session=[...s.sessions.values()][0];
  assert.equal((await s.run('run',{buildId:id,consent:true,coupon:'FREE',amount:0,payment_status:'no_payment_required'})).code,402);
  const free={...session,status:'complete',amount_total:0,total_details:{amount_discount:PRICE},payment_status:'no_payment_required',payment_intent:null};
  assert.equal(checkPayment(free,'owner-a',id,session.id),true);
  for(const patch of [
-  {status:'open'},{status:'expired'},{payment_status:'unpaid'},{payment_status:'paid'},
+  {status:'open'},{status:'expired'},{payment_status:'unpaid'},{payment_status:'unknown'},
   {amount_total:1},{amount_total:-1},{amount_total:200},{amount_total:0.5},
   {amount_subtotal:0},{amount_subtotal:198},{amount_subtotal:undefined},
   {total_details:{amount_discount:0}},{total_details:{amount_discount:198}},{total_details:null},
