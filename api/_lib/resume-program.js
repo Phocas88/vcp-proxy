@@ -39,12 +39,20 @@ function checkPayment(s,uid,id,sessionId) {
  return s?.id===sessionId && s.mode==='payment' && s.status==='complete' && validTotal && settled && s.currency==='usd' && s.client_reference_id===id && s.metadata?.uid===uid && s.metadata?.buildId===id && s.metadata?.product===PRODUCT && !s.payment_intent?.latest_charge?.refunded;
 }
 function settlement(s){return {amount:s.amount_total,discountAmount:s.total_details.amount_discount};}
-function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',...(details?{input:data.input,review:data.result||null}:{} )};}
+function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',...(details?{input:data.input,review:data.result||null,lastError:data.lastError||null}:{} )};}
 function createProgramHandler(deps={}) {
  const now=deps.now||Date.now;
  return async function(req,res){
   res.setHeader('Cache-Control','no-store');
-  let ref, lease, stage='request';
+  let ref, lease, heartbeat, streaming=false, stage='request';
+  const stopHeartbeat=()=>clearInterval(heartbeat);
+  const reply=(status,body)=>{
+   if(!streaming)return res.status(status).json(body);
+   // Headers have already been flushed. Keep application status in the final
+   // JSON envelope; whitespace heartbeats remain valid JSON for older clients.
+   if(!res.destroyed&&!res.writableEnded)res.end(JSON.stringify({...body,httpStatus:status}));
+   return res;
+  };
   try {
    const origin=req.headers.origin;
    if(!ORIGINS.has(origin))throw fail(403,'Open the Veteran Career Path resume program to continue.');
@@ -114,23 +122,32 @@ function createProgramHandler(deps={}) {
    const checkout=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'?expand[]=payment_intent.latest_charge',key,AbortSignal.timeout(12000));
    if(!checkPayment(checkout,uid,id,data.sessionId))throw fail(402,'Payment has not completed or could not be verified. Resume the existing checkout from purchase history; do not pay again if your card was charged.');
    stage='build_storage';lease=crypto.randomUUID();
-   const prior=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status==='complete')return d.result;if(d.status==='deleted')throw fail(410,'This build was deleted.');if(d.status==='running'&&d.leaseUntil>now())throw fail(409,'This build is already running. Wait a moment, then reopen it from purchase history.');tx.update(ref,{status:'running',...settlement(checkout),lease,leaseUntil:now()+210000,updatedAt:now()});return null;});
+   const prior=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status==='complete')return d.result;if(d.status==='deleted')throw fail(410,'This build was deleted.');if(d.status==='running'&&d.leaseUntil>now())throw fail(409,'This build is already running. Wait a moment, then reopen it from purchase history.');tx.update(ref,{status:'running',...settlement(checkout),lease,leaseUntil:now()+210000,lastError:null,updatedAt:now()});return null;});
    if(prior){lease=null;return res.status(200).json({id,review:prior});}
    // Quota applies only to actual AI executions. Failed executions retain the purchase.
    if(deps.quota&&!await deps.quota(uid))throw fail(429,'Too many AI attempts. Wait 15 minutes; your purchase is still available.');
+   if(req.body.keepAlive===true){
+    res.status(200);res.setHeader('Content-Type','application/json; charset=utf-8');
+    streaming=true;
+    const pulse=()=>{if(!res.destroyed&&!res.writableEnded)res.write(' \n');};
+    pulse();heartbeat=setInterval(pulse,5000);heartbeat.unref?.();
+    res.once?.('close',stopHeartbeat);
+   }
    stage='ai_build';
    const review=await (deps.generate||generate)(data.input);
    if (!review || typeof review.revisedResume !== 'string' || !review.revisedResume.trim()) throw diagnostic('AI_REWRITE_WITHHELD');
    stage='result_storage';
    await db.runTransaction(async tx=>{const s=await tx.get(ref);if(s.data().lease!==lease)throw fail(409,'A recovery attempt is already handling this build. Open it from purchase history.');tx.update(ref,{status:'complete',result:review,lease:null,leaseUntil:0,updatedAt:now()});});
-   lease=null;return res.status(200).json({id,review});
+   lease=null;return reply(200,{id,review});
   }catch(e){
-   if(lease&&ref){try{await (deps.db||require('./firebase-admin').getDb()).runTransaction(async tx=>{const s=await tx.get(ref);if(s.data()?.lease===lease)tx.update(ref,{status:'paid',lease:null,leaseUntil:0,updatedAt:now()});});}catch{/* An expired execution lease is recoverable. */}}
    // Never log resumes, results, Stripe responses, credentials, or identity tokens.
    const errorCode=DIAGNOSTIC_CODES.has(e.diagnosticCode)?e.diagnosticCode:({checkout_verification:'CHECKOUT_VERIFICATION_UNAVAILABLE',build_storage:'BUILD_STORAGE_UNAVAILABLE',ai_build:'AI_BUILD_UNAVAILABLE',result_storage:'RESULT_STORAGE_UNAVAILABLE'}[stage]||'SERVICE_UNAVAILABLE');
    const message=DIAGNOSTIC_MESSAGES[errorCode]||'The service could not complete this action.';
-   return res.status(e.public&&e.status<500?e.status:503).json({error:e.public&&e.status<500?e.message:message+' Your checkout remains available in purchase history; no second payment is needed. Support code: '+errorCode+'.',errorCode});
-  }
+   const status=e.public&&e.status<500?e.status:503;
+   const body={error:e.public&&e.status<500?e.message:message+' Your checkout remains available in purchase history; no second payment is needed. Support code: '+errorCode+'.',errorCode};
+   if(lease&&ref){try{await (deps.db||require('./firebase-admin').getDb()).runTransaction(async tx=>{const s=await tx.get(ref);if(s.data()?.lease===lease)tx.update(ref,{status:'paid',lease:null,leaseUntil:0,lastError:{...body,status},updatedAt:now()});});}catch{/* An expired execution lease is recoverable. */}}
+   return reply(status,body);
+  }finally{stopHeartbeat();res.removeListener?.('close',stopHeartbeat);}
  };
 }
 async function generate(input){
