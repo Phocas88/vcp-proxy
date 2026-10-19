@@ -119,11 +119,11 @@ export async function reviewResume(input, { apiKey, model = 'gpt-4.1-mini', fetc
         ['insufficient_quota', 'AI reviews are paused because the service has insufficient API credits or has reached a spending or usage limit. The site owner needs to check API billing and limits. Your resume is unchanged.']
       ]);
       const quotaMessage = quotaMessages.get(error?.code);
-      if (quotaMessage) throw new ReviewError(quotaMessage, 503, 'AI_QUOTA_OR_RATE_LIMIT');
+      if (quotaMessage) throw new ReviewError(quotaMessage, 503, 'AI_BILLING_LIMIT');
       if (['rate_limit_exceeded', 'slow_down'].includes(error?.code) || error?.type === 'rate_limit_error') {
-        throw new ReviewError('Too many AI review requests right now. Wait a minute before trying again. Your resume is unchanged.', 503, 'AI_QUOTA_OR_RATE_LIMIT');
+        throw new ReviewError('Too many AI review requests right now. Wait a minute before trying again. Your resume is unchanged.', 503, 'AI_RATE_LIMIT');
       }
-      if (error?.type === 'insufficient_quota') throw new ReviewError(quotaMessages.get('insufficient_quota'), 503, 'AI_QUOTA_OR_RATE_LIMIT');
+      if (error?.type === 'insufficient_quota') throw new ReviewError(quotaMessages.get('insufficient_quota'), 503, 'AI_BILLING_LIMIT');
       throw new ReviewError('The review service is busy or its usage limit has been reached. Please try again later.', 503, 'AI_QUOTA_OR_RATE_LIMIT');
     }
     throw new ReviewError('AI review is temporarily unavailable. Your resume has not been changed.', 502, ({401:'AI_AUTHENTICATION',403:'AI_ACCESS'}[response.status])||(response.status>=500?'AI_PROVIDER_UNAVAILABLE':'AI_REQUEST_REJECTED'));

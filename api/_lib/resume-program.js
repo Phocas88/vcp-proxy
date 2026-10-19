@@ -9,10 +9,12 @@ const PRODUCT = 'vcp-resume-workspace';
 const ORIGINS = new Set(['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app']);
 const sitePath = origin => origin.includes('mobile-resume-review-app') ? '/index.html' : '/resumereview/';
 const fail = (status,message) => Object.assign(new Error(message),{status,public:true});
-const DIAGNOSTIC_CODES=new Set(['AI_AUTHENTICATION','AI_ACCESS','AI_QUOTA_OR_RATE_LIMIT','AI_PROVIDER_UNAVAILABLE','AI_REQUEST_REJECTED','AI_TIMEOUT','AI_INVALID_RESPONSE','AI_OUTPUT_TRUNCATED','AI_REWRITE_WITHHELD']);
+const DIAGNOSTIC_CODES=new Set(['AI_AUTHENTICATION','AI_ACCESS','AI_BILLING_LIMIT','AI_RATE_LIMIT','AI_QUOTA_OR_RATE_LIMIT','AI_PROVIDER_UNAVAILABLE','AI_REQUEST_REJECTED','AI_TIMEOUT','AI_INVALID_RESPONSE','AI_OUTPUT_TRUNCATED','AI_REWRITE_WITHHELD']);
 const DIAGNOSTIC_MESSAGES={
  AI_AUTHENTICATION:'The AI connection could not authenticate. The site owner needs to reconnect the AI service.',
  AI_ACCESS:'The AI connection does not have access to the configured model. The site owner needs to check AI access.',
+ AI_BILLING_LIMIT:'AI builds are paused because the AI provider reports insufficient credits or a billing or spending limit. The site owner needs to check AI billing.',
+ AI_RATE_LIMIT:'The AI provider is rate limiting build requests. Wait a minute before retrying this existing build.',
  AI_QUOTA_OR_RATE_LIMIT:'The AI provider has reached a credit, usage or rate limit.',
  AI_PROVIDER_UNAVAILABLE:'The AI provider is temporarily unavailable.',
  AI_REQUEST_REJECTED:'The AI provider rejected the build request.',
@@ -143,7 +145,13 @@ async function generate(input){
  let response;
  try{response=await anthropicRequest({model:DEFAULT_MODEL,max_tokens:12000,system:mod.instructions,messages:[{role:'user',content:JSON.stringify(input)}],tools:[{name:'submit_resume_review',description:'Return the complete factual resume rewrite and editorial review.',input_schema:mod.reviewSchema}],tool_choice:{type:'tool',name:'submit_resume_review'}},{signal:AbortSignal.timeout(150000)});}
  catch(error){throw diagnostic(['AbortError','TimeoutError'].includes(error.name)?'AI_TIMEOUT':'AI_PROVIDER_UNAVAILABLE');}
- if(!response.ok)throw diagnostic(({401:'AI_AUTHENTICATION',403:'AI_ACCESS',429:'AI_QUOTA_OR_RATE_LIMIT'}[response.status])||(response.status>=500?'AI_PROVIDER_UNAVAILABLE':'AI_REQUEST_REJECTED'));
+ if(!response.ok){
+  const error=response.data?.error;
+  // Match only known billing language; never return the provider's raw message.
+  if(error?.type==='invalid_request_error'&&typeof error.message==='string'&&/credit balance.{0,40}too low|insufficient credits/i.test(error.message))throw diagnostic('AI_BILLING_LIMIT');
+  if(response.status===429&&error?.type==='rate_limit_error')throw diagnostic('AI_RATE_LIMIT');
+  throw diagnostic(({401:'AI_AUTHENTICATION',403:'AI_ACCESS',429:'AI_QUOTA_OR_RATE_LIMIT'}[response.status])||(response.status>=500?'AI_PROVIDER_UNAVAILABLE':'AI_REQUEST_REJECTED'));
+ }
  if(response.data?.stop_reason==='max_tokens')throw diagnostic('AI_OUTPUT_TRUNCATED');
  try{return mod.normalizeReview(response.data?.content?.find(x=>x.type==='tool_use'&&x.name==='submit_resume_review')?.input,input.resume,input.additionalDetails);}
  catch{throw diagnostic('AI_INVALID_RESPONSE');}
