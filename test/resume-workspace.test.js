@@ -5,6 +5,62 @@ const {consumeQuota}=require('../api/_lib/resume-workspace');
 const input={resume:'ALEX EXAMPLE\nMILITARY EXPERIENCE\nSupply specialist\nU.S. Navy\nMaintained accurate equipment records and trained colleagues on inventory processes.',applicationType:'federal',role:'Logistics specialist'};
 const review={score:70,summary:'Clearer duties.',strengths:[],findings:[],suggestions:[],nextSteps:[],revisedResume:input.resume,rewriteNotes:[]};
 
+const prepaidRequest={requestId:'12345678-1234-1234-1234-123456789012',entryMode:'build',storageConsent:true};
+async function prepaid(s){const r=await s.run('purchase',prepaidRequest);assert.equal(r.code,200,JSON.stringify(r.data));return r.data.id;}
+test('upfront checkout requires no resume; duplicate clicks reuse it and unpaid owners cannot bind or build',async()=>{
+ const s=setup(),id=await prepaid(s);assert.equal(await prepaid(s),id);assert.equal(s.checkouts(),1);assert.equal(s.calls(),0);
+ assert.equal((await s.run('get',{buildId:id})).data.input,null);
+ assert.equal((await s.run('purchase',{...prepaidRequest,storageConsent:false})).code,400);
+ assert.equal((await s.run('purchase',{...prepaidRequest,entryMode:'invalid'})).code,400);
+ assert.equal((await s.run('verify',{buildId:id})).code,402);
+ assert.equal((await s.run('bind',{buildId:id,input,consent:true,storageConsent:true})).code,402);
+ assert.equal((await s.run('run',{buildId:id,consent:true})).code,400);
+ assert.equal((await s.run('verify',{buildId:id},{'x-vcp-firebase-token':'owner-b'})).code,404);
+});
+test('verified full-price and free prepaid purchases bind one fixed resume and recover without another checkout',async()=>{
+ for(const amount of [0,PRICE]){
+  const s=setup(),id=await prepaid(s),session=[...s.sessions.values()][0];
+  Object.assign(session,{status:'complete',payment_status:amount===0?'no_payment_required':'paid',amount_total:amount,total_details:{amount_discount:PRICE-amount}});
+  const verified=await s.run('verify',{buildId:id});assert.equal(verified.code,200);assert.equal(verified.data.prepaid,true);assert.equal(verified.data.amount,amount);assert.equal(verified.data.input,null);
+  assert.equal((await s.run('bind',{buildId:id,input,consent:true})).code,400);
+  assert.equal((await s.run('bind',{buildId:id,input,consent:true,storageConsent:true})).code,200);
+  assert.equal((await s.run('bind',{buildId:id,input,consent:true,storageConsent:true})).code,200);
+  assert.equal((await s.run('bind',{buildId:id,input:{...input,role:'Different role'},consent:true,storageConsent:true})).code,409);
+  const done=await s.run('run',{buildId:id,consent:true});assert.equal(done.code,200);assert.equal(done.data.review.submittedResume,input.resume);
+  assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);assert.equal(s.calls(),1);assert.equal(s.checkouts(),1);
+ }
+});
+test('refunded purchases do not unlock the builder or accept a resume',async()=>{
+ const s=setup(),id=await prepaid(s);s.paid();[...s.sessions.values()][0].payment_intent={latest_charge:{refunded:true}};
+ assert.equal((await s.run('verify',{buildId:id})).code,402);assert.equal((await s.run('bind',{buildId:id,input,consent:true,storageConsent:true})).code,402);assert.equal(s.calls(),0);
+});
+test('one included clarification update uses server-owned questions, preserves the submitted source and charges nothing extra',async()=>{
+ let generated;
+ const initial={...review,findings:[{priority:'High',title:'Hours missing',evidence:'Supply specialist',action:'What were your verified hours per week?'}],nextSteps:['Which inventory system did you use?']};
+ const s=setup({generate:async value=>{generated=value;return initial;}}),id=await s.prepare();s.paid();await s.run('run',{buildId:id,consent:true});
+ const answers=[{id:'finding-0',answer:'Supply specialist: 40 hours per week.'},{id:'step-0',answer:'Used the Navy supply system.'},{id:'extra-0',context:'Supply specialist',answer:'Trained three colleagues.'}];
+ const refined=await s.run('refine',{buildId:id,answers,consent:true});assert.equal(refined.code,200);assert.equal(refined.data.review.refinementCount,1);assert.equal(refined.data.review.submittedResume,input.resume);
+ assert.match(generated.additionalDetails,/What were your verified hours per week/);assert.match(generated.additionalDetails,/40 hours/);assert.match(generated.additionalDetails,/Trained three colleagues/);
+ const saved=(await s.run('get',{buildId:id})).data;assert.deepEqual(saved.answers,answers);assert.equal(saved.input.resume,input.resume);
+ const duplicate=await s.run('refine',{buildId:id,answers,consent:true});assert.equal(duplicate.code,409);assert.equal(duplicate.data.errorCode,'CLARIFICATION_UPDATE_USED');assert.equal(s.checkouts(),1);
+ await s.run('delete',{buildId:id});const record=[...s.db.records.values()][0];assert.equal(record.answers,null);assert.equal(record.clarificationDetails,null);
+});
+test('invalid clarification answers cannot consume the included update',async()=>{
+ const initial={...review,nextSteps:['Which role do these hours belong to?']};
+ const s=setup({generate:async()=>initial}),id=await s.prepare();s.paid();await s.run('run',{buildId:id,consent:true});
+ for(const answers of [[],[{id:'step-9',answer:'Forged question'}],[{id:'step-0',answer:'x'.repeat(1001)}],[{id:'extra-0',answer:'Missing context'}],[{id:'step-0',answer:'One'},{id:'step-0',answer:'Two'}],[{id:'step-0',answer:'Fact',context:4}]])assert.equal((await s.run('refine',{buildId:id,answers,consent:true})).code,400);
+ assert.equal((await s.run('get',{buildId:id})).data.refinementCount,0);assert.equal(s.checkouts(),1);
+});
+test('a failed clarification update retains the first result and can retry without another payment',async()=>{
+ let calls=0;const initial={...review,nextSteps:['Which system did you use?']};
+ const s=setup({generate:async()=>{if(++calls===2)throw new Error('Temporary outage');return initial;}}),id=await s.prepare();s.paid();await s.run('run',{buildId:id,consent:true});
+ const answers=[{id:'step-0',answer:'Supply tracking system'}];
+ assert.equal((await s.run('refine',{buildId:id,answers,consent:true})).code,503);
+ let saved=(await s.run('get',{buildId:id})).data;assert.equal(saved.status,'complete');assert.equal(saved.refinementCount,0);assert.equal(saved.review.revisedResume,input.resume);assert.ok(saved.lastError);
+ assert.equal((await s.run('refine',{buildId:id,answers,consent:true})).code,200);
+ saved=(await s.run('get',{buildId:id})).data;assert.equal(saved.refinementCount,1);assert.equal(saved.lastError,null);assert.equal(s.checkouts(),1);assert.equal(calls,3);
+});
+
 test('long reviews send JSON whitespace immediately and periodically, then save one result',async t=>{
  t.mock.timers.enable({apis:['setInterval']});
  let release,started,writes=0;
@@ -16,8 +72,8 @@ test('long reviews send JSON whitespace immediately and periodically, then save 
  assert.equal((await s.run('get',{buildId:id})).data.status,'running');
  assert.equal((await s.run('run',{buildId:id,consent:true,keepAlive:true})).code,409);
  release();const result=await pending;
- assert.equal(result.code,200);assert.equal(result.data.httpStatus,200);assert.deepEqual(result.data.review,review);
- assert.deepEqual((await s.run('get',{buildId:id})).data.review,review);
+ assert.equal(result.code,200);assert.equal(result.data.httpStatus,200);assert.deepEqual(result.data.review,{...review,submittedResume:input.resume,refinementCount:0});
+ assert.deepEqual((await s.run('get',{buildId:id})).data.review,{...review,submittedResume:input.resume,refinementCount:0});
  t.mock.timers.tick(15000);assert.equal(writes,4);assert.equal(s.checkouts(),1);
 });
 
@@ -39,7 +95,7 @@ test('a disconnected response still leaves the completed resume recoverable',asy
  const s=setup({onWrite:res=>{res.destroyed=true;}}),id=await s.prepare();s.paid();
  await s.run('run',{buildId:id,consent:true,keepAlive:true});
  const saved=(await s.run('get',{buildId:id})).data;
- assert.equal(saved.status,'complete');assert.deepEqual(saved.review,review);assert.equal(s.calls(),1);
+ assert.equal(saved.status,'complete');assert.deepEqual(saved.review,{...review,submittedResume:input.resume,refinementCount:0});assert.equal(s.calls(),1);
 });
 function memoryDb(){const records=new Map();let queue=Promise.resolve();const ref=path=>({path,id:path.split('/').at(-1),collection:k=>ref(path+'/'+k),doc:k=>ref(path+'/'+k),orderBy(){return this;},limit(){return this;},async get(){return {exists:records.has(path),data:()=>structuredClone(records.get(path)),docs:[...records].filter(([k])=>k.startsWith(path+'/')).map(([k,v])=>({id:k.split('/').at(-1),data:()=>structuredClone(v)}))};},async update(d){records.set(path,{...records.get(path),...structuredClone(d)});}});return {records,collection:k=>ref(k),runTransaction(fn){const run=queue.then(()=>fn({get:r=>r.get(),set:(r,d)=>records.set(r.path,structuredClone(d)),update:(r,d)=>records.set(r.path,{...records.get(r.path),...structuredClone(d)})}));queue=run.catch(()=>{});return run;}};}
 function setup(options={}){const db=memoryDb(),sessions=new Map(),keys=new Map(),checkoutBodies=[];let calls=0,checkouts=0,clock=1000000;const stripe={async stripePost(path,body,key,signal,idempotency,apiVersion){assert.equal(apiVersion,'2024-06-20');if(path.endsWith('/expire')){const s=sessions.get(path.split('/')[4]);s.status='expired';return s;}checkoutBodies.push(body);assert.equal(body.line_items[0].price_data.unit_amount,199);assert.equal(body.line_items[0].price_data.currency,'usd');assert.equal(body.mode,'payment');assert.equal(body.allow_promotion_codes,true);assert.ok(!JSON.stringify(body).includes(input.resume));assert.ok(idempotency.startsWith('resume-program-'));if(keys.has(idempotency))return keys.get(idempotency);checkouts++;const s={id:'cs_test_'+checkouts,url:'https://checkout.stripe.com/c/pay/test_'+checkouts,status:'open',mode:'payment',payment_status:'unpaid',allow_promotion_codes:body.allow_promotion_codes,amount_subtotal:PRICE,amount_total:PRICE,total_details:{amount_discount:0,amount_shipping:0,amount_tax:0},currency:'usd',client_reference_id:body.client_reference_id,metadata:body.metadata};sessions.set(s.id,s);keys.set(idempotency,s);return s;},async stripeGet(path,key,signal,apiVersion){assert.equal(apiVersion,'2024-06-20');const id=path.split('/').at(-1).split('?')[0];return structuredClone(sessions.get(id));}};
