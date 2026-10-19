@@ -10,6 +10,20 @@ const ORIGINS = new Set(['https://veterancareerpath.com','https://www.veterancar
 const sitePath = origin => origin.includes('mobile-resume-review-app') ? '/index.html' : '/resumereview/';
 const fail = (status,message) => Object.assign(new Error(message),{status,public:true});
 const DIAGNOSTIC_CODES=new Set(['AI_AUTHENTICATION','AI_ACCESS','AI_QUOTA_OR_RATE_LIMIT','AI_PROVIDER_UNAVAILABLE','AI_REQUEST_REJECTED','AI_TIMEOUT','AI_INVALID_RESPONSE','AI_OUTPUT_TRUNCATED','AI_REWRITE_WITHHELD']);
+const DIAGNOSTIC_MESSAGES={
+ AI_AUTHENTICATION:'The AI connection could not authenticate. The site owner needs to reconnect the AI service.',
+ AI_ACCESS:'The AI connection does not have access to the configured model. The site owner needs to check AI access.',
+ AI_QUOTA_OR_RATE_LIMIT:'The AI provider has reached a credit, usage or rate limit.',
+ AI_PROVIDER_UNAVAILABLE:'The AI provider is temporarily unavailable.',
+ AI_REQUEST_REJECTED:'The AI provider rejected the build request.',
+ AI_TIMEOUT:'The AI provider did not finish before the request timed out.',
+ AI_INVALID_RESPONSE:'The AI provider returned a result the resume builder could not read.',
+ AI_OUTPUT_TRUNCATED:'The AI response stopped before the complete resume was returned.',
+ AI_REWRITE_WITHHELD:'The AI draft was withheld because it did not pass the resume fact-preservation checks.',
+ BUILD_STORAGE_UNAVAILABLE:'The resume service could not reserve this build for processing.',
+ RESULT_STORAGE_UNAVAILABLE:'The resume service could not save the generated result.',
+ CHECKOUT_VERIFICATION_UNAVAILABLE:'The checkout service could not be reached to verify this build.'
+};
 const diagnostic=(code)=>Object.assign(new Error('Resume build failed'),{diagnosticCode:code});
 function reference(db,uid,id) { return db.collection('_privateResumeProgramUsers').doc(uid).collection('builds').doc(id); }
 function checkPayment(s,uid,id,sessionId) {
@@ -112,7 +126,8 @@ function createProgramHandler(deps={}) {
    if(lease&&ref){try{await (deps.db||require('./firebase-admin').getDb()).runTransaction(async tx=>{const s=await tx.get(ref);if(s.data()?.lease===lease)tx.update(ref,{status:'paid',lease:null,leaseUntil:0,updatedAt:now()});});}catch{/* An expired execution lease is recoverable. */}}
    // Never log resumes, results, Stripe responses, credentials, or identity tokens.
    const errorCode=DIAGNOSTIC_CODES.has(e.diagnosticCode)?e.diagnosticCode:({checkout_verification:'CHECKOUT_VERIFICATION_UNAVAILABLE',build_storage:'BUILD_STORAGE_UNAVAILABLE',ai_build:'AI_BUILD_UNAVAILABLE',result_storage:'RESULT_STORAGE_UNAVAILABLE'}[stage]||'SERVICE_UNAVAILABLE');
-   return res.status(e.public&&e.status<500?e.status:503).json({error:e.public&&e.status<500?e.message:'The service could not complete this action. Your purchase remains recoverable in purchase history; no second payment is needed for a failed build.',errorCode});
+   const message=DIAGNOSTIC_MESSAGES[errorCode]||'The service could not complete this action.';
+   return res.status(e.public&&e.status<500?e.status:503).json({error:e.public&&e.status<500?e.message:message+' Your checkout remains available in purchase history; no second payment is needed. Support code: '+errorCode+'.',errorCode});
   }
  };
 }
