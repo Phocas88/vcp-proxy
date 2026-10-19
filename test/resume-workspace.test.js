@@ -4,10 +4,47 @@ const {createProgramHandler,checkPayment,PRICE,PRODUCT}=require('../api/_lib/res
 const {consumeQuota}=require('../api/_lib/resume-workspace');
 const input={resume:'ALEX EXAMPLE\nMILITARY EXPERIENCE\nSupply specialist\nU.S. Navy\nMaintained accurate equipment records and trained colleagues on inventory processes.',applicationType:'federal',role:'Logistics specialist'};
 const review={score:70,summary:'Clearer duties.',strengths:[],findings:[],suggestions:[],nextSteps:[],revisedResume:input.resume,rewriteNotes:[]};
+
+test('long reviews send JSON whitespace immediately and periodically, then save one result',async t=>{
+ t.mock.timers.enable({apis:['setInterval']});
+ let release,started,writes=0;
+ const gate=new Promise(r=>release=r),begin=new Promise(r=>started=r);
+ const s=setup({onWrite:()=>writes++,generate:async()=>{started();await gate;return review;}});
+ const id=await s.prepare();s.paid();
+ const pending=s.run('run',{buildId:id,consent:true,keepAlive:true});await begin;
+ assert.equal(writes,1);t.mock.timers.tick(15000);assert.equal(writes,4);
+ assert.equal((await s.run('get',{buildId:id})).data.status,'running');
+ assert.equal((await s.run('run',{buildId:id,consent:true,keepAlive:true})).code,409);
+ release();const result=await pending;
+ assert.equal(result.code,200);assert.equal(result.data.httpStatus,200);assert.deepEqual(result.data.review,review);
+ assert.deepEqual((await s.run('get',{buildId:id})).data.review,review);
+ t.mock.timers.tick(15000);assert.equal(writes,4);assert.equal(s.checkouts(),1);
+});
+
+test('streamed provider failures retain safe diagnostics for read-only recovery and a manual retry clears them',async()=>{
+ let attempt=0;
+ const s=setup({generate:async()=>{if(++attempt===1)throw Object.assign(new Error('private-secret-resume'),{diagnosticCode:'AI_AUTHENTICATION'});return review;}});
+ const id=await s.prepare();s.paid();
+ const failed=await s.run('run',{buildId:id,consent:true,keepAlive:true});
+ assert.equal(failed.code,200);assert.equal(failed.data.httpStatus,503);assert.equal(failed.data.errorCode,'AI_AUTHENTICATION');
+ const saved=(await s.run('get',{buildId:id})).data;
+ assert.equal(saved.lastError.errorCode,'AI_AUTHENTICATION');assert.equal(saved.lastError.status,503);assert.equal(saved.status,'paid');
+ assert.ok(!JSON.stringify(saved).includes('private-secret-resume'));
+ assert.equal((await s.run('get',{buildId:id},{'x-vcp-firebase-token':'owner-b'})).code,404);
+ assert.equal((await s.run('run',{buildId:id,consent:true,keepAlive:true})).data.httpStatus,200);
+ assert.equal((await s.run('get',{buildId:id})).data.lastError,null);assert.equal(attempt,2);assert.equal(s.checkouts(),1);
+});
+
+test('a disconnected response still leaves the completed resume recoverable',async()=>{
+ const s=setup({onWrite:res=>{res.destroyed=true;}}),id=await s.prepare();s.paid();
+ await s.run('run',{buildId:id,consent:true,keepAlive:true});
+ const saved=(await s.run('get',{buildId:id})).data;
+ assert.equal(saved.status,'complete');assert.deepEqual(saved.review,review);assert.equal(s.calls(),1);
+});
 function memoryDb(){const records=new Map();let queue=Promise.resolve();const ref=path=>({path,id:path.split('/').at(-1),collection:k=>ref(path+'/'+k),doc:k=>ref(path+'/'+k),orderBy(){return this;},limit(){return this;},async get(){return {exists:records.has(path),data:()=>structuredClone(records.get(path)),docs:[...records].filter(([k])=>k.startsWith(path+'/')).map(([k,v])=>({id:k.split('/').at(-1),data:()=>structuredClone(v)}))};},async update(d){records.set(path,{...records.get(path),...structuredClone(d)});}});return {records,collection:k=>ref(k),runTransaction(fn){const run=queue.then(()=>fn({get:r=>r.get(),set:(r,d)=>records.set(r.path,structuredClone(d)),update:(r,d)=>records.set(r.path,{...records.get(r.path),...structuredClone(d)})}));queue=run.catch(()=>{});return run;}};}
 function setup(options={}){const db=memoryDb(),sessions=new Map(),keys=new Map(),checkoutBodies=[];let calls=0,checkouts=0,clock=1000000;const stripe={async stripePost(path,body,key,signal,idempotency,apiVersion){assert.equal(apiVersion,'2024-06-20');if(path.endsWith('/expire')){const s=sessions.get(path.split('/')[4]);s.status='expired';return s;}checkoutBodies.push(body);assert.equal(body.line_items[0].price_data.unit_amount,199);assert.equal(body.line_items[0].price_data.currency,'usd');assert.equal(body.mode,'payment');assert.equal(body.allow_promotion_codes,true);assert.ok(!JSON.stringify(body).includes(input.resume));assert.ok(idempotency.startsWith('resume-program-'));if(keys.has(idempotency))return keys.get(idempotency);checkouts++;const s={id:'cs_test_'+checkouts,url:'https://checkout.stripe.com/c/pay/test_'+checkouts,status:'open',mode:'payment',payment_status:'unpaid',allow_promotion_codes:body.allow_promotion_codes,amount_subtotal:PRICE,amount_total:PRICE,total_details:{amount_discount:0,amount_shipping:0,amount_tax:0},currency:'usd',client_reference_id:body.client_reference_id,metadata:body.metadata};sessions.set(s.id,s);keys.set(idempotency,s);return s;},async stripeGet(path,key,signal,apiVersion){assert.equal(apiVersion,'2024-06-20');const id=path.split('/').at(-1).split('?')[0];return structuredClone(sessions.get(id));}};
  const handler=createProgramHandler({db,stripe,stripeKey:'test-placeholder',now:()=>clock,verifyIdToken:async token=>{if(!['owner-a','owner-b'].includes(token))throw new Error('invalid');return {uid:token};},quota:async()=>true,generate:async value=>{calls++;assert.deepEqual(value.resume,input.resume);return review;},...options});
- return {db,sessions,checkoutBodies,calls:()=>calls,checkouts:()=>checkouts,tick:n=>clock+=n,paid(){for(const s of sessions.values()){s.status='complete';s.payment_status='paid';}},async run(action,body={},headers={}){const res={code:200,setHeader(){},status(c){this.code=c;return this;},json(d){this.data=d;return this;}};await handler({headers:{origin:'https://veterancareerpath.com','content-type':'application/json','x-vcp-firebase-token':'owner-a',...headers},body:{workspace:true,action,...body}},res);return res;},async prepare(){const r=await this.run('prepare',{input,consent:true,storageConsent:true});assert.equal(r.code,200,JSON.stringify(r.data));return r.data.id;}};
+ return {db,sessions,checkoutBodies,calls:()=>calls,checkouts:()=>checkouts,tick:n=>clock+=n,paid(){for(const s of sessions.values()){s.status='complete';s.payment_status='paid';}},async run(action,body={},headers={}){const res={code:200,chunks:[],setHeader(){},status(c){this.code=c;return this;},json(d){this.data=d;return this;},write(chunk){this.chunks.push(chunk);options.onWrite?.(this);},end(chunk){this.chunks.push(chunk);this.data=JSON.parse(this.chunks.join(''));this.writableEnded=true;}};await handler({headers:{origin:'https://veterancareerpath.com','content-type':'application/json','x-vcp-firebase-token':'owner-a',...headers},body:{workspace:true,action,...body}},res);return res;},async prepare(){const r=await this.run('prepare',{input,consent:true,storageConsent:true});assert.equal(r.code,200,JSON.stringify(r.data));return r.data.id;}};
 }
 test('free program identity and both agreements are required; no membership or access-code token is needed',async()=>{const s=setup();for(const headers of [{'x-vcp-firebase-token':''},{'x-vcp-firebase-token':'forged'},{origin:'https://evil.example'}])assert.ok((await s.run('prepare',{input,consent:true,storageConsent:true},headers)).code>=400);assert.equal((await s.run('prepare',{input,consent:true})).code,400);assert.equal((await s.run('prepare',{input:{resume:'short'},consent:true,storageConsent:true})).code,400);assert.equal(s.checkouts(),0);await s.prepare();assert.equal(s.checkouts(),1);assert.equal(s.calls(),0);});
 test('only a Stripe-verified $1.99 USD purchase unlocks its owner and fixed input',async()=>{const s=setup();const id=await s.prepare();assert.equal((await s.run('run',{buildId:id,consent:true,paid:true,amount:1})).code,402);assert.equal((await s.run('get',{buildId:id},{'x-vcp-firebase-token':'owner-b'})).code,404);s.paid();const paid=structuredClone([...s.sessions.values()][0]);for(const patch of [{amount_total:100},{currency:'eur'},{metadata:{...paid.metadata,uid:'owner-b'}},{metadata:{...paid.metadata,product:'resume-pro'}},{client_reference_id:'other'},{mode:'subscription'},{payment_intent:{latest_charge:{refunded:true}}}])assert.equal(checkPayment({...paid,...patch},'owner-a',id,paid.id),false);const done=await s.run('run',{buildId:id,consent:true,input:{resume:'tampered'}});assert.equal(done.code,200);assert.equal(done.data.review.revisedResume,input.resume);assert.equal(s.calls(),1);assert.equal((await s.run('run',{buildId:id,consent:true})).code,200);assert.equal(s.calls(),1);});
