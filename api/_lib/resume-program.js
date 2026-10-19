@@ -15,7 +15,9 @@ function checkPayment(s,uid,id,sessionId) {
  // total alone is not proof of a valid discount or a completed checkout.
  const total=s?.amount_total, discount=s?.total_details?.amount_discount;
  const validTotal=Number.isInteger(total) && total>=0 && total<=PRICE && s.amount_subtotal===PRICE && Number.isInteger(discount) && discount===PRICE-total;
- const settled=total===0 ? s?.payment_status==='no_payment_required' : s?.payment_status==='paid';
+ // A fully discounted payment-mode Session can still be reported as paid.
+ // Accept either settled status at $0; positive totals must always be paid.
+ const settled=s?.payment_status==='paid' || (total===0 && s?.payment_status==='no_payment_required');
  return s?.id===sessionId && s.mode==='payment' && s.status==='complete' && validTotal && settled && s.currency==='usd' && s.client_reference_id===id && s.metadata?.uid===uid && s.metadata?.buildId===id && s.metadata?.product===PRODUCT && !s.payment_intent?.latest_charge?.refunded;
 }
 function settlement(s){return {amount:s.amount_total,discountAmount:s.total_details.amount_discount};}
