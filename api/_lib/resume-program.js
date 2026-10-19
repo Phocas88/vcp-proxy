@@ -26,7 +26,13 @@ const DIAGNOSTIC_MESSAGES={
  RESULT_STORAGE_UNAVAILABLE:'The resume service could not save the generated result.',
  CHECKOUT_VERIFICATION_UNAVAILABLE:'The checkout service could not be reached to verify this build.'
 };
-const diagnostic=(code)=>Object.assign(new Error('Resume build failed'),{diagnosticCode:code});
+const diagnostic=(code,validationDetails)=>Object.assign(new Error('Resume build failed'),{diagnosticCode:code,...(validationDetails?{validationDetails}: {})});
+function safeValidationDetails(value){
+ if(!value||typeof value!=='object')return null;
+ const unsupportedNumbers=Array.isArray(value.unsupportedNumbers)?value.unsupportedNumbers.filter(x=>typeof x==='string'&&x.length<=40&&/^\d+(?:[.,]\d+)*(?:\s*%|[ \t]*[KMB]\b)?$/iu.test(x)).slice(0,8).map(x=>x.replace(/\s+/gu,' ')):[];
+ const reasons=[...(value.empty===true?['empty_rewrite']:[]),...(value.overLength===true?['length_limit']:[]),...(unsupportedNumbers.length?['unsupported_numbers']:[])];
+ return reasons.length?{reasons,unsupportedNumbers,...(Number.isInteger(value.characters)&&value.characters>=0?{characters:value.characters}:{}),characterLimit:20000}:null;
+}
 function reference(db,uid,id) { return db.collection('_privateResumeProgramUsers').doc(uid).collection('builds').doc(id); }
 function checkPayment(s,uid,id,sessionId) {
  // Trust only the server-created Session retrieved directly from Stripe. A zero
@@ -192,8 +198,13 @@ function createProgramHandler(deps={}) {
    // Never log resumes, results, Stripe responses, credentials, or identity tokens.
    const errorCode=e.publicCode||(DIAGNOSTIC_CODES.has(e.diagnosticCode)?e.diagnosticCode:({checkout_verification:'CHECKOUT_VERIFICATION_UNAVAILABLE',build_storage:'BUILD_STORAGE_UNAVAILABLE',ai_build:'AI_BUILD_UNAVAILABLE',result_storage:'RESULT_STORAGE_UNAVAILABLE'}[stage]||'SERVICE_UNAVAILABLE'));
    const message=DIAGNOSTIC_MESSAGES[errorCode]||'The service could not complete this action.';
+   // These details are only returned to the authenticated build owner and saved
+   // in that owner's private recovery record. Never send the rejected draft or
+   // log its content, even when generation fails repeatedly.
+   const validationDetails=errorCode==='AI_REWRITE_WITHHELD'?safeValidationDetails(e.validationDetails):null;
+   const reason=validationDetails?.unsupportedNumbers.length?'The AI rewrite added or changed numeric details ('+validationDetails.unsupportedNumbers.join(', ')+'), so it was not applied.':validationDetails?.reasons.includes('length_limit')?'The AI rewrite exceeded the 20,000-character limit, so it was not applied.':validationDetails?.reasons.includes('empty_rewrite')?'The AI returned no complete revised resume.':message;
    const status=e.public&&e.status<500?e.status:503;
-   const body={error:e.public&&e.status<500?e.message:message+' Your checkout remains available in purchase history; no second payment is needed. Support code: '+errorCode+'.',errorCode};
+   const body={error:e.public&&e.status<500?e.message:reason+' Your checkout remains available in purchase history; no second payment is needed. Support code: '+errorCode+'.',errorCode,...(validationDetails?{validationDetails}: {})};
    if(lease&&ref){try{await (deps.db||require('./firebase-admin').getDb()).runTransaction(async tx=>{const s=await tx.get(ref);if(s.data()?.lease===lease)tx.update(ref,{status:s.data().result?'complete':'paid',lease:null,leaseUntil:0,lastError:{...body,status},updatedAt:now()});});}catch{/* An expired execution lease is recoverable. */}}
    return reply(status,body);
   }finally{stopHeartbeat();res.removeListener?.('close',stopHeartbeat);}
@@ -222,7 +233,7 @@ async function generate(input){
  if(response.data?.stop_reason==='max_tokens')throw diagnostic('AI_OUTPUT_TRUNCATED');
  return response.data?.content?.find(x=>x.type==='tool_use'&&x.name==='submit_resume_review')?.input;
  });
- }catch(error){if(error instanceof mod.ReviewError)throw diagnostic(DIAGNOSTIC_CODES.has(error.diagnosticCode)?error.diagnosticCode:'AI_INVALID_RESPONSE');throw error;}
+ }catch(error){if(error instanceof mod.ReviewError)throw diagnostic(DIAGNOSTIC_CODES.has(error.diagnosticCode)?error.diagnosticCode:'AI_INVALID_RESPONSE',error.validationDetails);throw error;}
 }
 module.exports={createProgramHandler,checkPayment,PRICE,PRODUCT,ORIGINS};
 
