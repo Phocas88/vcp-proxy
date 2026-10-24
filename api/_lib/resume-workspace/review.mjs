@@ -54,6 +54,7 @@ function rewriteProblems(draft, resume, additionalDetails) {
   };
 }
 const rejected = problems => problems.empty || problems.overLength || problems.unsupportedNumbers.length > 0;
+export const unsupportedNumericClaims = (text, source) => rewriteProblems(text, source, '').unsupportedNumbers;
 export const reviewSchema = {
   type: 'object', additionalProperties: false,
   properties: {

@@ -45,7 +45,7 @@ function checkPayment(s,uid,id,sessionId) {
  return s?.id===sessionId && s.mode==='payment' && s.status==='complete' && validTotal && settled && s.currency==='usd' && s.client_reference_id===id && s.metadata?.uid===uid && s.metadata?.buildId===id && s.metadata?.product===PRODUCT && !s.payment_intent?.latest_charge?.refunded;
 }
 function settlement(s){return {amount:s.amount_total,discountAmount:s.total_details.amount_discount};}
-function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,prepaid:data.prepaid===true,entryMode:data.entryMode||'edit',refinementCount:data.refinementCount||0,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',...(details?{input:data.input,requestId:data.requestId||null,review:data.result?{...data.result,submittedResume:data.input?.resume||'',refinementCount:data.refinementCount||0}:null,lastError:data.lastError||null,answers:data.answers||[]}:{} )};}
+function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,prepaid:data.prepaid===true,entryMode:data.entryMode||'edit',refinementCount:data.refinementCount||0,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',...(details?{input:data.input,entryContext:data.entryContext||null,requestId:data.requestId||null,review:data.result?{...data.result,submittedResume:data.input?.resume||'',refinementCount:data.refinementCount||0}:null,lastError:data.lastError||null,answers:data.answers||[]}:{} )};}
 function clarificationInput(data,answers){
  if(!Array.isArray(answers)||!answers.length||answers.length>16)throw fail(400,'Answer at least one review question.');
  const seen=new Set(),verified=[];
@@ -101,13 +101,15 @@ function createProgramHandler(deps={}) {
    }
    if(action==='prepare'||action==='purchase'){
     const prepaid=action==='purchase';
+    let entryContext=null;
+    if(prepaid&&req.body.entryContext){const c=req.body.entryContext;if(typeof c!=='object'||Array.isArray(c)||Object.keys(c).some(k=>!['jobId','resumeVersionId'].includes(k))||typeof c.jobId!=='string'||!/^[\w-]{1,160}$/.test(c.jobId)||typeof c.resumeVersionId!=='string'||c.resumeVersionId&&!/^[\w-]{1,160}$/.test(c.resumeVersionId))throw fail(400,'Choose a saved application and resume version.');entryContext={jobId:c.jobId,resumeVersionId:c.resumeVersionId};}
     if(req.body.storageConsent!==true||(!prepaid&&req.body.consent!==true))throw fail(400,'Agree to the purchase and recovery storage terms before checkout.');
     let input=null;
     if(prepaid){if(typeof req.body.requestId!=='string'||!/^[a-f0-9-]{36}$/i.test(req.body.requestId)||!['build','edit'].includes(req.body.entryMode))throw fail(400,'Choose how to start your resume build.');}
     else{const mod=await import('./resume-workspace/review.mjs');try{input=mod.validateInput(req.body.input);}catch(error){throw fail(error.status||400,error.message);}}
     if(!key||(!deps.generate&&!process.env.ANTHROPIC_API_KEY&&!process.env.OPENAI_API_KEY))throw fail(503,'Purchases are paused while the AI or payment service is being configured. You have not been charged.');
     const id=crypto.createHash('sha256').update(uid+'\0'+(prepaid?'prepaid:'+req.body.requestId:JSON.stringify(input))).digest('hex');ref=reference(db,uid,id);
-    let data=await db.runTransaction(async tx=>{const s=await tx.get(ref);if(s.exists)return s.data();const d={uid,input,...(prepaid?{prepaid:true,entryMode:req.body.entryMode,requestId:req.body.requestId}:{}),status:'awaiting_payment',createdAt:now(),updatedAt:now(),attempt:0,origin};tx.set(ref,d);return d;});
+    let data=await db.runTransaction(async tx=>{const s=await tx.get(ref);if(s.exists)return s.data();const d={uid,input,...(prepaid?{prepaid:true,entryMode:req.body.entryMode,requestId:req.body.requestId,...(entryContext?{entryContext}: {})}:{}),status:'awaiting_payment',createdAt:now(),updatedAt:now(),attempt:0,origin};tx.set(ref,d);return d;});
     if(data.status==='deleted')throw fail(409,'This build was deleted. Change the draft to start a new build, or contact support about the purchase.');
     if(data.status==='complete'||data.status==='paid'||data.status==='running')return res.status(200).json(publicBuild(id,data,true));
     let expired=false;
@@ -137,7 +139,7 @@ function createProgramHandler(deps={}) {
    if(action==='delete'){
     if(data.status==='running'&&data.leaseUntil>now())throw fail(409,'Wait for this build to finish before deleting its data.');
     if(data.status==='awaiting_payment'&&data.sessionId&&key){try{const session=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId),key,AbortSignal.timeout(12000));if(session.status==='open')await stripe.stripePost('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'/expire',{},key,AbortSignal.timeout(12000));}catch{/* Data deletion still proceeds; Stripe remains the payment source of truth. */}}
-    await ref.update({input:null,result:null,answers:null,clarificationDetails:null,lastError:null,status:'deleted',checkoutUrl:null,updatedAt:now()});return res.status(200).json({deleted:true});
+    await ref.update({input:null,result:null,answers:null,clarificationDetails:null,careerKit:null,careerLease:null,careerLeaseUntil:0,lastError:null,status:'deleted',checkoutUrl:null,updatedAt:now()});return res.status(200).json({deleted:true});
    }
    if(data.status==='deleted')throw fail(410,'The resume data for this build was deleted. Contact support for purchase questions.');
    if(action==='verify'||action==='bind'){
@@ -160,6 +162,7 @@ function createProgramHandler(deps={}) {
     return res.status(200).json(publicBuild(id,data,true));
    }
    if(action==='get')return res.status(200).json(publicBuild(id,data,true));
+   if(action==='career')return require('./career-kit').handleCareerKit({req,res,ref,data,db,uid,id,stripe,key,deps,now,checkPayment});
    if(!['run','refine'].includes(action))throw fail(400,'Unknown program action.');
    if(req.body.consent!==true)throw fail(400,'Agree to AI processing before building.');
    const refining=action==='refine';
