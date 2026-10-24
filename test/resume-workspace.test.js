@@ -284,3 +284,27 @@ test('rewrite failure details disclose only bounded numeric reasons to the authe
  for(const hidden of ['private-provider-message','<script>','private-rejected-text','private-draft'])assert.ok(!JSON.stringify(failed.data).includes(hidden));
  assert.equal((await s.run('get',{buildId:id},{'x-vcp-firebase-token':'owner-b'})).code,404);assert.equal(s.checkouts(),1);
 });
+
+const careerFixture={summary:'Evidence-based career tools.',qualifications:[],translations:[{militaryTerm:'Supply specialist',civilianSkill:'Inventory operations',evidence:'Maintained accurate equipment records',resumeWording:'Maintained accurate equipment records.',careerDirections:['Inventory coordinator']}],coverLetter:'Dear Hiring Team,\n\nI maintained accurate equipment records and trained colleagues on inventory processes.',checks:['Verify your details.']};
+test('career tools require the owner and a completed settled purchase, cache one kit, and delete its data',async()=>{
+ let kits=0;const s=setup({generateCareer:async()=>{kits++;return careerFixture;}}),id=await s.prepare();
+ assert.equal((await s.run('career',{buildId:id,consent:true})).code,409);s.paid();await s.run('run',{buildId:id,consent:true});
+ assert.equal((await s.run('career',{buildId:id,consent:true},{'x-vcp-firebase-token':'owner-b'})).code,404);
+ assert.equal((await s.run('career',{buildId:id})).code,400);
+ const result=await s.run('career',{buildId:id,consent:true,keepAlive:true});assert.equal(result.data.httpStatus,200);assert.ok(result.data.kit.coverLetter);
+ assert.deepEqual((await s.run('career',{buildId:id})).data.kit,result.data.kit);assert.equal(kits,1);assert.equal(s.checkouts(),1);
+ [...s.sessions.values()][0].payment_intent={latest_charge:{refunded:true}};assert.equal((await s.run('career',{buildId:id,consent:true})).code,402);
+ await s.run('delete',{buildId:id});assert.equal([...s.db.records.values()][0].careerKit,null);
+});
+test('failed or concurrent career requests preserve the resume and reuse the same purchase',async()=>{
+ let kits=0,release,started;const gate=new Promise(r=>release=r),begin=new Promise(r=>started=r);
+ const s=setup({generateCareer:async()=>{kits++;if(kits===1)throw new Error('private-fragment');started();await gate;return careerFixture;}}),id=await s.prepare();s.paid();await s.run('run',{buildId:id,consent:true});
+ const failed=await s.run('career',{buildId:id,consent:true});assert.equal(failed.code,503);assert.ok(!JSON.stringify(failed.data).includes('private-fragment'));assert.equal((await s.run('get',{buildId:id})).data.status,'complete');
+ const pending=s.run('career',{buildId:id,consent:true});await begin;assert.equal((await s.run('career',{buildId:id,consent:true})).code,409);release();assert.equal((await pending).code,200);assert.equal(s.checkouts(),1);
+});
+test('prepaid tailoring context survives checkout without sending resume content to Stripe',async()=>{
+ const s=setup(),context={jobId:'job-123',resumeVersionId:'version-456'};
+ const r=await s.run('purchase',{...prepaidRequest,entryContext:context});s.paid();const value=await s.run('verify',{buildId:r.data.id});assert.deepEqual(value.data.entryContext,context);
+ assert.ok(!JSON.stringify(s.checkoutBodies).includes('job-123'));
+ assert.equal((await s.run('purchase',{...prepaidRequest,entryContext:{jobId:'../another-user',resumeVersionId:''}})).code,400);
+});
