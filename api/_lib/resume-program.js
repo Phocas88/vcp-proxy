@@ -45,7 +45,7 @@ function checkPayment(s,uid,id,sessionId) {
  return s?.id===sessionId && s.mode==='payment' && s.status==='complete' && validTotal && settled && s.currency==='usd' && s.client_reference_id===id && s.metadata?.uid===uid && s.metadata?.buildId===id && s.metadata?.product===PRODUCT && !s.payment_intent?.latest_charge?.refunded;
 }
 function settlement(s){return {amount:s.amount_total,discountAmount:s.total_details.amount_discount};}
-function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,prepaid:data.prepaid===true,entryMode:data.entryMode||'edit',refinementCount:data.refinementCount||0,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',...(details?{input:data.input,entryContext:data.entryContext||null,requestId:data.requestId||null,review:data.result?{...data.result,submittedResume:data.input?.resume||'',refinementCount:data.refinementCount||0}:null,lastError:data.lastError||null,answers:data.answers||[]}:{} )};}
+function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,prepaid:data.prepaid===true,entryMode:data.entryMode||'edit',refinementCount:data.refinementCount||0,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',templates:data.templates||[],includedTemplate:data.includedTemplate||null,...(details?{input:data.input,entryContext:data.entryContext||null,requestId:data.requestId||null,review:data.result?{...data.result,submittedResume:data.input?.resume||'',refinementCount:data.refinementCount||0}:null,lastError:data.lastError||null,answers:data.answers||[]}:{} )};}
 function clarificationInput(data,answers){
  if(!Array.isArray(answers)||!answers.length||answers.length>16)throw fail(400,'Answer at least one review question.');
  const seen=new Set(),verified=[];
@@ -81,7 +81,7 @@ function createProgramHandler(deps={}) {
    const origin=req.headers.origin;
    if(!ORIGINS.has(origin))throw fail(403,'Open the Veteran Career Path resume program to continue.');
    if(!String(req.headers['content-type']||'').startsWith('application/json'))throw fail(415,'Send resume text as JSON.');
-   if(Buffer.byteLength(JSON.stringify(req.body||{}))>150000)throw fail(413,'That draft is too large.');
+   if(Buffer.byteLength(JSON.stringify(req.body||{}))>(String(req.body?.action).startsWith('template-')?950000:150000))throw fail(413,'That draft is too large.');
    if(req.body.action==='guest') {
     if(Object.keys(req.body).some(key=>!['workspace','action'].includes(key)))throw fail(400,'Guest sign-in does not accept resume content.');
     const result=await require('./resume-guest').guestToken(req,deps);
@@ -128,7 +128,7 @@ function createProgramHandler(deps={}) {
     if(expired||now()-data.createdAt>23*60*60*1000){data=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status!=='awaiting_payment')throw fail(409,'Build state changed. Open purchase history.');if(d.sessionId===data.sessionId&&d.attempt===data.attempt){const next={...d,attempt:d.attempt+1,sessionId:null,checkoutUrl:null,createdAt:now()};tx.set(ref,next);return next;}return d;});}
     if(deps.checkoutQuota&&!await deps.checkoutQuota(uid))throw fail(429,'Several checkouts have been requested. Wait 15 minutes before opening another; existing paid builds remain available.');
     const base=data.origin+sitePath(data.origin);
-    const body={mode:'payment',allow_promotion_codes:true,client_reference_id:id,metadata:{product:PRODUCT,uid,buildId:id},payment_intent_data:{metadata:{product:PRODUCT,uid,buildId:id}},payment_method_types:['card'],line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:PRICE,product_data:{name:'Veteran Career Path — one AI resume build',description:'One fact-preserving AI build. Formatting and downloads included. No subscription.'}}}],success_url:base+'?build='+id+'&checkout=success',cancel_url:base+'?build='+id+'&checkout=canceled'};
+    const body={mode:'payment',allow_promotion_codes:true,client_reference_id:id,metadata:{product:PRODUCT,uid,buildId:id},payment_intent_data:{metadata:{product:PRODUCT,uid,buildId:id}},payment_method_types:['card'],line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:PRICE,product_data:{name:'Veteran Career Path — one AI resume build',description:'One AI build and one chosen template. Additional templates $1 each. No subscription.'}}}],success_url:base+'?build='+id+'&checkout=success',cancel_url:base+'?build='+id+'&checkout=canceled'};
     const session=await stripe.stripePost('/v1/checkout/sessions',body,key,AbortSignal.timeout(12000),'resume-program-promo-v1-'+id+'-'+data.attempt);
     if(!session.id||!/^https:\/\/checkout\.stripe\.com\//.test(session.url||''))throw fail(502,'Stripe checkout could not open. You have not been charged by this request.');
     await ref.update({sessionId:session.id,checkoutUrl:session.url,updatedAt:now()});
@@ -136,10 +136,12 @@ function createProgramHandler(deps={}) {
    }
    const id=req.body.buildId;if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))throw fail(400,'Choose a build from your purchase history.');
    ref=reference(db,uid,id);const snap=await ref.get();if(!snap.exists)throw fail(404,'Build not found in this program account.');let data=snap.data();
+   if(data.status==='deleted'&&action!=='delete')throw fail(410,'The resume data for this build was deleted.');
+   if(['template-finish','template-verify','template-open'].includes(action))return await require('./resume-templates').handleTemplates({req,res,ref,data,db,uid,id,stripe,key,now,checkPayment,base:origin+sitePath(origin),checkoutQuota:deps.checkoutQuota});
    if(action==='delete'){
     if(data.status==='running'&&data.leaseUntil>now())throw fail(409,'Wait for this build to finish before deleting its data.');
     if(data.status==='awaiting_payment'&&data.sessionId&&key){try{const session=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId),key,AbortSignal.timeout(12000));if(session.status==='open')await stripe.stripePost('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'/expire',{},key,AbortSignal.timeout(12000));}catch{/* Data deletion still proceeds; Stripe remains the payment source of truth. */}}
-    await ref.update({input:null,result:null,answers:null,clarificationDetails:null,careerKit:null,careerLease:null,careerLeaseUntil:0,lastError:null,status:'deleted',checkoutUrl:null,updatedAt:now()});return res.status(200).json({deleted:true});
+    await ref.update({templates:[],includedTemplate:null,input:null,result:null,answers:null,clarificationDetails:null,careerKit:null,careerLease:null,careerLeaseUntil:0,lastError:null,status:'deleted',checkoutUrl:null,updatedAt:now()});await require('./resume-templates').deleteTemplateData(ref);return res.status(200).json({deleted:true});
    }
    if(data.status==='deleted')throw fail(410,'The resume data for this build was deleted. Contact support for purchase questions.');
    if(action==='verify'||action==='bind'){
