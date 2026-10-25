@@ -146,6 +146,11 @@ module.exports = async function handler(req, res) {
     return notFound(res);
   }
   if (!p || p.published === false) return notFound(res);
+  if(p.source==='vcp-resume-program'){
+    res.setHeader('Cache-Control','public, max-age=30, s-maxage=60, stale-while-revalidate=30');
+    return res.status(200).send(require('../_lib/digital-cv-page').renderDigitalCv(p,slug));
+  }
+
 
   const name = p.name || 'Veteran';
   const headline = p.headline || 'U.S. Military Veteran';
@@ -225,3 +230,4 @@ module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=30');
   return res.status(200).send('<!DOCTYPE html><html lang="en"><head>' + head(metaHead) + '</head><body>' + body + '</body></html>');
 };
+
