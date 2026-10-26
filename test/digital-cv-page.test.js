@@ -27,3 +27,7 @@ test('the live route uses the new design for app CVs while preserving legacy web
  const legacy=await request({...fixture,source:'legacy-website'});assert.equal(legacy.code,200);assert.match(legacy.body,/class="hero"/);assert.doesNotMatch(legacy.body,/data-cv-layout/);
  assert.equal((await request({...fixture,published:false})).code,404);assert.equal((await request({},404)).code,404);
 });
+
+test('optional profile photo and professional links are rendered safely without executable URLs',()=>{
+ const {renderDigitalCv,safePhoto}=require('../api/_lib/digital-cv-page');const photo='data:image/jpeg;base64,/9j/4P/Z';assert.equal(safePhoto(photo),photo);const html=renderDigitalCv({name:'EXAMPLE PROFILE',photo,contact:{github:'https://github.com/example',portfolio:'https://example.com/work',website:'javascript:alert(1)'}},'example');assert.ok(html.includes('src="'+photo+'"'));assert.ok(html.includes('https://github.com/example'));assert.ok(html.includes('https://example.com/work'));assert.ok(!html.includes('javascript:'));assert.equal(safePhoto('data:image/svg+xml;base64,PHN2Zz4='),'');assert.equal(safePhoto('https://example.com/photo.jpg'),'');assert.equal(safePhoto('data:image/jpeg;base64,/9j/YmFk'),'');
+});
