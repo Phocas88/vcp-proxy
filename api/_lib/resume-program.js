@@ -45,7 +45,7 @@ function checkPayment(s,uid,id,sessionId) {
  return s?.id===sessionId && s.mode==='payment' && s.status==='complete' && validTotal && settled && s.currency==='usd' && s.client_reference_id===id && s.metadata?.uid===uid && s.metadata?.buildId===id && s.metadata?.product===PRODUCT && !s.payment_intent?.latest_charge?.refunded;
 }
 function settlement(s){return {amount:s.amount_total,discountAmount:s.total_details.amount_discount};}
-function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,prepaid:data.prepaid===true,entryMode:data.entryMode||'edit',refinementCount:data.refinementCount||0,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',templates:data.templates||[],includedTemplate:data.includedTemplate||null,...(details?{input:data.input,entryContext:data.entryContext||null,requestId:data.requestId||null,review:data.result?{...data.result,submittedResume:data.input?.resume||'',refinementCount:data.refinementCount||0}:null,lastError:data.lastError||null,answers:data.answers||[]}:{} )};}
+function publicBuild(id,data,details=false){return {id,status:data.status,createdAt:data.createdAt,prepaid:data.prepaid===true,entryMode:data.entryMode||'edit',refinementCount:data.refinementCount||0,amount:data.amount??PRICE,discountAmount:data.discountAmount??0,currency:'usd',templates:data.templates||[],includedTemplate:data.includedTemplate||null,...(details?{input:data.input,entryContext:data.entryContext||null,requestId:data.requestId||null,careerMatches:data.result?.careerMatches??data.careerAssessment?.matches,review:data.result?{...data.result,submittedResume:data.input?.resume||'',refinementCount:data.refinementCount||0}:null,lastError:data.lastError||null,answers:data.answers||[]}:{} )};}
 function clarificationInput(data,answers){
  if(!Array.isArray(answers)||!answers.length||answers.length>16)throw fail(400,'Answer at least one review question.');
  const seen=new Set(),verified=[];
@@ -141,7 +141,7 @@ function createProgramHandler(deps={}) {
    if(action==='delete'){
     if(data.status==='running'&&data.leaseUntil>now())throw fail(409,'Wait for this build to finish before deleting its data.');
     if(data.status==='awaiting_payment'&&data.sessionId&&key){try{const session=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId),key,AbortSignal.timeout(12000));if(session.status==='open')await stripe.stripePost('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'/expire',{},key,AbortSignal.timeout(12000));}catch{/* Data deletion still proceeds; Stripe remains the payment source of truth. */}}
-    await ref.update({templates:[],includedTemplate:null,input:null,result:null,answers:null,clarificationDetails:null,careerKit:null,careerLease:null,careerLeaseUntil:0,lastError:null,status:'deleted',checkoutUrl:null,updatedAt:now()});await require('./resume-templates').deleteTemplateData(ref);return res.status(200).json({deleted:true});
+    await ref.update({templates:[],includedTemplate:null,input:null,result:null,answers:null,clarificationDetails:null,careerKit:null,careerLease:null,careerLeaseUntil:0,careerAssessment:null,careerAssessmentLease:null,careerAssessmentLeaseUntil:0,lastError:null,status:'deleted',checkoutUrl:null,updatedAt:now()});await require('./resume-templates').deleteTemplateData(ref);return res.status(200).json({deleted:true});
    }
    if(data.status==='deleted')throw fail(410,'The resume data for this build was deleted. Contact support for purchase questions.');
    if(action==='verify'||action==='bind'){
@@ -164,6 +164,7 @@ function createProgramHandler(deps={}) {
     return res.status(200).json(publicBuild(id,data,true));
    }
    if(action==='get')return res.status(200).json(publicBuild(id,data,true));
+   if(action==='career-assess')return require('./career-matches').handleCareerMatches({req,res,ref,data,db,uid,id,stripe,key,deps,now,checkPayment});
    if(action==='career')return require('./career-kit').handleCareerKit({req,res,ref,data,db,uid,id,stripe,key,deps,now,checkPayment});
    if(!['run','refine'].includes(action))throw fail(400,'Unknown program action.');
    if(req.body.consent!==true)throw fail(400,'Agree to AI processing before building.');
