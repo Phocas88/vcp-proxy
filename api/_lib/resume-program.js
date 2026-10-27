@@ -134,6 +134,12 @@ function createProgramHandler(deps={}) {
     await ref.update({sessionId:session.id,checkoutUrl:session.url,updatedAt:now()});
     return res.status(200).json({id,status:'awaiting_payment',url:session.url});
    }
+   if(action==='career-assess-saved'){
+    const resumeId=req.body.resumeId;
+    if(typeof resumeId!=='string'||!/^[\w-]{1,160}$/.test(resumeId))throw fail(400,'Choose a saved resume from this account.');
+    const sourceRef=db.collection('profiles').doc(uid).collection('resumeProgramResumes').doc(resumeId);
+    return require('./career-saved').handleSavedCareerMatches({req,res,sourceRef,db,deps,uid,now});
+   }
    const id=req.body.buildId;if(typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))throw fail(400,'Choose a build from your purchase history.');
    ref=reference(db,uid,id);const snap=await ref.get();if(!snap.exists)throw fail(404,'Build not found in this program account.');let data=snap.data();
    if(data.status==='deleted'&&action!=='delete')throw fail(410,'The resume data for this build was deleted.');
@@ -164,6 +170,14 @@ function createProgramHandler(deps={}) {
     return res.status(200).json(publicBuild(id,data,true));
    }
    if(action==='get')return res.status(200).json(publicBuild(id,data,true));
+   if(action==='career-assess'&&req.body.design){
+    const design=req.body.design;
+    if(!require('./resume-templates').DESIGNS.has(design)||!(data.templates||[]).includes(design))throw fail(400,'Choose a saved template from this purchase.');
+    if(!key||!data.sessionId)throw fail(402,'Open the existing resume purchase first.');
+    const checkout=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'?expand[]=payment_intent.latest_charge',key,AbortSignal.timeout(12000));
+    if(!checkPayment(checkout,uid,id,data.sessionId))throw fail(402,'This purchase could not be verified. Reopen its existing checkout.');
+    return require('./career-saved').handleSavedCareerMatches({req,res,sourceRef:ref.collection('finishedResumes').doc(design),parentRef:ref,db,deps,uid,now});
+   }
    if(action==='career-assess')return require('./career-matches').handleCareerMatches({req,res,ref,data,db,uid,id,stripe,key,deps,now,checkPayment});
    if(action==='career')return require('./career-kit').handleCareerKit({req,res,ref,data,db,uid,id,stripe,key,deps,now,checkPayment});
    if(!['run','refine'].includes(action))throw fail(400,'Unknown program action.');
