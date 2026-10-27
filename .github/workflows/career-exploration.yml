@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'api/_lib/career-matches.js'
+      - 'api/_lib/career-evidence.js'
       - 'api/_lib/career-saved.js'
       - 'api/_lib/resume-delete.js'
       - 'api/_lib/resume-templates.js'
@@ -18,6 +19,7 @@ on:
     branches: [main]
     paths:
       - 'api/_lib/career-matches.js'
+      - 'api/_lib/career-evidence.js'
       - 'api/_lib/career-saved.js'
       - 'api/_lib/resume-delete.js'
       - 'api/_lib/resume-templates.js'
@@ -42,3 +44,4 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Verify evidence, ownership, payment, recovery and existing backend behavior
         run: npm test
+
