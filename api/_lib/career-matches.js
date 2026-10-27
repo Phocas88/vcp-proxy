@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const catalog=require('./career-catalog.json');
+const previousIds=require('./previous-career-ids.json');
 const occupations=new Map(catalog.occupations.map(item=>[item.code,item]));
 const str={type:'string'};
 const matchSchema={type:'object',additionalProperties:false,properties:{code:{type:'string',enum:[...occupations.keys()]},connection:{type:'string',enum:['Experience connection','Transferable skills','Longer-term option']},evidence:str,reason:str,checkNext:str},required:['code','connection','evidence','reason','checkNext']};
@@ -9,7 +10,7 @@ const instructions=`Suggest 5 to 8 civilian occupations from this catalog, or fe
 const text=(s,max)=>typeof s==='string'?s.trim().slice(0,max):'';
 function normalizeMatches(value,input){
  const seen=new Set(),source=input.resume+'\n'+(input.additionalDetails||'');
- return (Array.isArray(value)?value:[]).slice(0,12).filter(item=>item&&occupations.has(item.code)&&!seen.has(item.code)&&text(item.evidence,1200).length>=8&&source.includes(text(item.evidence,1200))&&['Experience connection','Transferable skills','Longer-term option'].includes(item.connection)&&text(item.reason,1000)&&text(item.checkNext,1000)).slice(0,8).map(item=>{seen.add(item.code);return {code:item.code,connection:item.connection,evidence:text(item.evidence,1200),reason:text(item.reason,1000),checkNext:text(item.checkNext,1000)};}).filter((item,index,array)=>array.findIndex(other=>other.code===item.code)===index);
+ return (Array.isArray(value)?value:[]).map(item=>item&&({...item,code:previousIds[item.code]||item.code})).slice(0,12).filter(item=>item&&occupations.has(item.code)&&!seen.has(item.code)&&text(item.evidence,1200).length>=8&&source.includes(text(item.evidence,1200))&&['Experience connection','Transferable skills','Longer-term option'].includes(item.connection)&&text(item.reason,1000)&&text(item.checkNext,1000)).slice(0,8).map(item=>{seen.add(item.code);return {code:item.code,connection:item.connection,evidence:text(item.evidence,1200),reason:text(item.reason,1000),checkNext:text(item.checkNext,1000)};}).filter((item,index,array)=>array.findIndex(other=>other.code===item.code)===index);
 }
 const fail=(status,message)=>Object.assign(new Error(message),{status,public:true});
 async function generateMatches(input){
