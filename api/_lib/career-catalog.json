@@ -1,5 +1,5 @@
 {
-  "version": "vcp-2026-10-27-2",
+  "version": "vcp-2026-10-27-3",
   "source": "Original Veteran Career Path career exploration catalog. VCP wrote the role labels, summaries, preparation groups, interest questions, and matching approach. These suggestions are guidance, not an aptitude or employment eligibility assessment.",
   "occupations": [
     {
@@ -7,455 +7,1378 @@
       "title": "Vehicle repair technician",
       "interests": "RC",
       "preparation": 2,
-      "description": "Inspect and repair vehicles and explain maintenance needs."
+      "description": "Inspect and repair vehicles and explain maintenance needs.",
+      "category": "trades"
     },
     {
       "code": "vcp-facilities-maintenance-technician",
       "title": "Facilities maintenance technician",
       "interests": "RC",
       "preparation": 2,
-      "description": "Maintain equipment, troubleshoot faults, and complete repairs."
+      "description": "Maintain equipment, troubleshoot faults, and complete repairs.",
+      "category": "trades"
     },
     {
       "code": "vcp-freight-truck-driver",
       "title": "Freight truck driver",
       "interests": "RC",
       "preparation": 2,
-      "description": "Move freight, inspect vehicles, and keep transport records."
+      "description": "Move freight, inspect vehicles, and keep transport records.",
+      "category": "logistics"
     },
     {
       "code": "vcp-alarm-installation-technician",
       "title": "Alarm installation technician",
       "interests": "RI",
       "preparation": 2,
-      "description": "Install, test, and maintain building alarm systems."
+      "description": "Install, test, and maintain building alarm systems.",
+      "category": "trades"
     },
     {
       "code": "vcp-electrical-trades-specialist",
       "title": "Electrical trades specialist",
       "interests": "RI",
       "preparation": 2,
-      "description": "Install and troubleshoot electrical systems and equipment."
+      "description": "Install and troubleshoot electrical systems and equipment.",
+      "category": "trades"
     },
     {
       "code": "vcp-heating-and-cooling-technician",
       "title": "Heating and cooling technician",
       "interests": "RI",
       "preparation": 2,
-      "description": "Maintain heating, cooling, and refrigeration equipment."
+      "description": "Maintain heating, cooling, and refrigeration equipment.",
+      "category": "trades"
     },
     {
       "code": "vcp-metal-fabrication-specialist",
       "title": "Metal fabrication specialist",
       "interests": "RC",
       "preparation": 2,
-      "description": "Join and repair metal parts using precise fabrication processes."
+      "description": "Join and repair metal parts using precise fabrication processes.",
+      "category": "trades"
     },
     {
       "code": "vcp-aircraft-maintenance-technician",
       "title": "Aircraft maintenance technician",
       "interests": "RI",
       "preparation": 2,
-      "description": "Inspect, repair, and document aircraft maintenance."
+      "description": "Inspect, repair, and document aircraft maintenance.",
+      "category": "trades"
     },
     {
       "code": "vcp-electronics-test-technician",
       "title": "Electronics test technician",
       "interests": "RI",
       "preparation": 3,
-      "description": "Test electronic systems and support engineering work."
+      "description": "Test electronic systems and support engineering work.",
+      "category": "engineering"
     },
     {
       "code": "vcp-commercial-pilot",
       "title": "Commercial pilot",
       "interests": "RI",
       "preparation": 4,
-      "description": "Operate aircraft and coordinate flight safety and procedures."
+      "description": "Operate aircraft and coordinate flight safety and procedures.",
+      "category": "logistics"
     },
     {
       "code": "vcp-cybersecurity-analyst",
       "title": "Cybersecurity analyst",
       "interests": "IC",
       "preparation": 4,
-      "description": "Investigate security risks and help protect computer systems."
+      "description": "Investigate security risks and help protect computer systems.",
+      "category": "technology"
     },
     {
       "code": "vcp-business-systems-analyst",
       "title": "Business systems analyst",
       "interests": "IC",
       "preparation": 4,
-      "description": "Study business needs and improve computer systems and workflows."
+      "description": "Study business needs and improve computer systems and workflows.",
+      "category": "technology"
     },
     {
       "code": "vcp-data-analysis-specialist",
       "title": "Data analysis specialist",
       "interests": "IC",
       "preparation": 4,
-      "description": "Analyze data and build methods for answering complex questions."
+      "description": "Analyze data and build methods for answering complex questions.",
+      "category": "technology"
     },
     {
       "code": "vcp-decision-support-analyst",
       "title": "Decision support analyst",
       "interests": "IC",
       "preparation": 4,
-      "description": "Use quantitative analysis to improve decisions and operations."
+      "description": "Use quantitative analysis to improve decisions and operations.",
+      "category": "technology"
     },
     {
       "code": "vcp-software-engineer",
       "title": "Software engineer",
       "interests": "IA",
       "preparation": 4,
-      "description": "Design, build, and test software applications."
+      "description": "Design, build, and test software applications.",
+      "category": "technology"
     },
     {
       "code": "vcp-process-improvement-engineer",
       "title": "Process improvement engineer",
       "interests": "IR",
       "preparation": 4,
-      "description": "Analyze processes and improve how people, materials, and equipment work together."
+      "description": "Analyze processes and improve how people, materials, and equipment work together.",
+      "category": "engineering"
     },
     {
       "code": "vcp-medical-imaging-technician",
       "title": "Medical imaging technician",
       "interests": "IR",
       "preparation": 3,
-      "description": "Perform medical imaging procedures and maintain accurate patient records."
+      "description": "Perform medical imaging procedures and maintain accurate patient records.",
+      "category": "health"
     },
     {
       "code": "vcp-environmental-monitoring-technician",
       "title": "Environmental monitoring technician",
       "interests": "IR",
       "preparation": 3,
-      "description": "Collect samples, inspect conditions, and document environmental findings."
+      "description": "Collect samples, inspect conditions, and document environmental findings.",
+      "category": "environment"
     },
     {
       "code": "vcp-supply-chain-specialist",
       "title": "Supply chain specialist",
       "interests": "IC",
       "preparation": 4,
-      "description": "Analyze movement, supply, inventory, and lifecycle needs."
+      "description": "Analyze movement, supply, inventory, and lifecycle needs.",
+      "category": "logistics"
     },
     {
       "code": "vcp-workplace-safety-specialist",
       "title": "Workplace safety specialist",
       "interests": "IR",
       "preparation": 4,
-      "description": "Evaluate workplace hazards and recommend safer processes."
+      "description": "Evaluate workplace hazards and recommend safer processes.",
+      "category": "public"
     },
     {
       "code": "vcp-visual-communication-designer",
       "title": "Visual communication designer",
       "interests": "AE",
       "preparation": 4,
-      "description": "Create visual materials that communicate information clearly."
+      "description": "Create visual materials that communicate information clearly.",
+      "category": "creative"
     },
     {
       "code": "vcp-technical-documentation-specialist",
       "title": "Technical documentation specialist",
       "interests": "AC",
       "preparation": 4,
-      "description": "Explain technical information through clear guides and instructions."
+      "description": "Explain technical information through clear guides and instructions.",
+      "category": "creative"
     },
     {
       "code": "vcp-corporate-communications-specialist",
       "title": "Corporate communications specialist",
       "interests": "AE",
       "preparation": 4,
-      "description": "Develop communications and help organizations inform their audiences."
+      "description": "Develop communications and help organizations inform their audiences.",
+      "category": "creative"
     },
     {
       "code": "vcp-video-production-editor",
       "title": "Video production editor",
       "interests": "AR",
       "preparation": 3,
-      "description": "Select and assemble footage to tell a coherent visual story."
+      "description": "Select and assemble footage to tell a coherent visual story.",
+      "category": "creative"
     },
     {
       "code": "vcp-commercial-photographer",
       "title": "Commercial photographer",
       "interests": "AR",
       "preparation": 2,
-      "description": "Create and edit photographs for communication and documentation."
+      "description": "Create and edit photographs for communication and documentation.",
+      "category": "creative"
     },
     {
       "code": "vcp-content-writer",
       "title": "Content writer",
       "interests": "AI",
       "preparation": 4,
-      "description": "Develop written content for specific audiences and purposes."
+      "description": "Develop written content for specific audiences and purposes.",
+      "category": "creative"
     },
     {
       "code": "vcp-digital-product-designer",
       "title": "Digital product designer",
       "interests": "AI",
       "preparation": 4,
-      "description": "Design usable websites and digital interfaces."
+      "description": "Design usable websites and digital interfaces.",
+      "category": "creative"
     },
     {
       "code": "vcp-space-planning-designer",
       "title": "Space planning designer",
       "interests": "AR",
       "preparation": 4,
-      "description": "Plan functional interior spaces and communicate design choices."
+      "description": "Plan functional interior spaces and communicate design choices.",
+      "category": "creative"
     },
     {
       "code": "vcp-audiovisual-equipment-technician",
       "title": "Audiovisual equipment technician",
       "interests": "RA",
       "preparation": 2,
-      "description": "Set up, operate, and troubleshoot audio and video equipment."
+      "description": "Set up, operate, and troubleshoot audio and video equipment.",
+      "category": "creative"
     },
     {
       "code": "vcp-media-production-lead",
       "title": "Media production lead",
       "interests": "AE",
       "preparation": 4,
-      "description": "Coordinate people and creative decisions for media productions."
+      "description": "Coordinate people and creative decisions for media productions.",
+      "category": "creative"
     },
     {
       "code": "vcp-community-services-assistant",
       "title": "Community services assistant",
       "interests": "SC",
       "preparation": 2,
-      "description": "Help people connect with services and keep case information organized."
+      "description": "Help people connect with services and keep case information organized.",
+      "category": "community"
     },
     {
       "code": "vcp-employee-training-specialist",
       "title": "Employee training specialist",
       "interests": "SE",
       "preparation": 4,
-      "description": "Create training and help employees learn work skills."
+      "description": "Create training and help employees learn work skills.",
+      "category": "community"
     },
     {
       "code": "vcp-clinical-nursing-professional",
       "title": "Clinical nursing professional",
       "interests": "SI",
       "preparation": 4,
-      "description": "Provide nursing care, educate patients, and coordinate clinical information."
+      "description": "Provide nursing care, educate patients, and coordinate clinical information.",
+      "category": "health"
     },
     {
       "code": "vcp-emergency-medical-responder",
       "title": "Emergency medical responder",
       "interests": "SR",
       "preparation": 2,
-      "description": "Provide emergency medical assistance within professional authorization."
+      "description": "Provide emergency medical assistance within professional authorization.",
+      "category": "health"
     },
     {
       "code": "vcp-healthcare-support-assistant",
       "title": "Healthcare support assistant",
       "interests": "SC",
       "preparation": 2,
-      "description": "Support clinical and administrative tasks in healthcare settings."
+      "description": "Support clinical and administrative tasks in healthcare settings.",
+      "category": "health"
     },
     {
       "code": "vcp-career-development-advisor",
       "title": "Career development advisor",
       "interests": "SI",
       "preparation": 4,
-      "description": "Help people understand education and career choices."
+      "description": "Help people understand education and career choices.",
+      "category": "community"
     },
     {
       "code": "vcp-community-health-advocate",
       "title": "Community health advocate",
       "interests": "SE",
       "preparation": 2,
-      "description": "Connect communities with health information and services."
+      "description": "Connect communities with health information and services.",
+      "category": "community"
     },
     {
       "code": "vcp-technical-skills-instructor",
       "title": "Technical skills instructor",
       "interests": "SR",
       "preparation": 4,
-      "description": "Teach practical occupational skills and evaluate learning."
+      "description": "Teach practical occupational skills and evaluate learning.",
+      "category": "community"
     },
     {
       "code": "vcp-mental-health-counseling-professional",
       "title": "Mental health counseling professional",
       "interests": "SI",
       "preparation": 4,
-      "description": "Support clients through counseling and coordinated care."
+      "description": "Support clients through counseling and coordinated care.",
+      "category": "health"
     },
     {
       "code": "vcp-fitness-coaching-specialist",
       "title": "Fitness coaching specialist",
       "interests": "SR",
       "preparation": 2,
-      "description": "Teach safe exercise techniques and lead fitness activities."
+      "description": "Teach safe exercise techniques and lead fitness activities.",
+      "category": "health"
     },
     {
       "code": "vcp-healthcare-operations-manager",
       "title": "Healthcare operations manager",
       "interests": "EC",
       "preparation": 4,
-      "description": "Coordinate healthcare operations, staff, and service delivery."
+      "description": "Coordinate healthcare operations, staff, and service delivery.",
+      "category": "health"
     },
     {
       "code": "vcp-recruiting-and-personnel-specialist",
       "title": "Recruiting and personnel specialist",
       "interests": "ES",
       "preparation": 4,
-      "description": "Support recruiting, employee processes, and personnel information."
+      "description": "Support recruiting, employee processes, and personnel information.",
+      "category": "people"
     },
     {
       "code": "vcp-project-delivery-coordinator",
       "title": "Project delivery coordinator",
       "interests": "EC",
       "preparation": 4,
-      "description": "Coordinate project schedules, resources, risks, and communication."
+      "description": "Coordinate project schedules, resources, risks, and communication.",
+      "category": "business"
     },
     {
       "code": "vcp-business-operations-coordinator",
       "title": "Business operations coordinator",
       "interests": "EC",
       "preparation": 4,
-      "description": "Support specialized business processes and operational improvement."
+      "description": "Support specialized business processes and operational improvement.",
+      "category": "business"
     },
     {
       "code": "vcp-client-services-sales-representative",
       "title": "Client services sales representative",
       "interests": "ES",
       "preparation": 2,
-      "description": "Understand customer needs and explain suitable services."
+      "description": "Understand customer needs and explain suitable services.",
+      "category": "people"
     },
     {
       "code": "vcp-procurement-specialist",
       "title": "Procurement specialist",
       "interests": "EC",
       "preparation": 4,
-      "description": "Compare suppliers and coordinate purchasing and delivery requirements."
+      "description": "Compare suppliers and coordinate purchasing and delivery requirements.",
+      "category": "logistics"
     },
     {
       "code": "vcp-distribution-operations-manager",
       "title": "Distribution operations manager",
       "interests": "EC",
       "preparation": 4,
-      "description": "Lead transport, warehouse, or distribution operations."
+      "description": "Lead transport, warehouse, or distribution operations.",
+      "category": "logistics"
     },
     {
       "code": "vcp-fire-response-team-supervisor",
       "title": "Fire response team supervisor",
       "interests": "ER",
       "preparation": 3,
-      "description": "Coordinate firefighting teams, readiness, and incident activities."
+      "description": "Coordinate firefighting teams, readiness, and incident activities.",
+      "category": "public"
     },
     {
       "code": "vcp-customer-research-analyst",
       "title": "Customer research analyst",
       "interests": "EI",
       "preparation": 4,
-      "description": "Study markets and communicate findings to support business choices."
+      "description": "Study markets and communicate findings to support business choices.",
+      "category": "people"
     },
     {
       "code": "vcp-administrative-operations-manager",
       "title": "Administrative operations manager",
       "interests": "EC",
       "preparation": 4,
-      "description": "Coordinate administrative services, resources, and office operations."
+      "description": "Coordinate administrative services, resources, and office operations.",
+      "category": "business"
     },
     {
       "code": "vcp-inventory-and-shipping-coordinator",
       "title": "Inventory and shipping coordinator",
       "interests": "CR",
       "preparation": 1,
-      "description": "Check shipments, maintain stock records, and track materials."
+      "description": "Check shipments, maintain stock records, and track materials.",
+      "category": "logistics"
     },
     {
       "code": "vcp-production-scheduling-coordinator",
       "title": "Production scheduling coordinator",
       "interests": "CE",
       "preparation": 2,
-      "description": "Coordinate work schedules, materials, and production records."
+      "description": "Coordinate work schedules, materials, and production records.",
+      "category": "engineering"
     },
     {
       "code": "vcp-financial-records-clerk",
       "title": "Financial records clerk",
       "interests": "CI",
       "preparation": 2,
-      "description": "Maintain financial records and check transactions for accuracy."
+      "description": "Maintain financial records and check transactions for accuracy.",
+      "category": "finance"
     },
     {
       "code": "vcp-accounting-professional",
       "title": "Accounting professional",
       "interests": "CI",
       "preparation": 4,
-      "description": "Analyze financial records and evaluate accounting information."
+      "description": "Analyze financial records and evaluate accounting information.",
+      "category": "finance"
     },
     {
       "code": "vcp-office-support-coordinator",
       "title": "Office support coordinator",
       "interests": "CS",
       "preparation": 1,
-      "description": "Organize schedules, documents, and everyday office communication."
+      "description": "Organize schedules, documents, and everyday office communication.",
+      "category": "finance"
     },
     {
       "code": "vcp-customer-support-specialist",
       "title": "Customer support specialist",
       "interests": "CS",
       "preparation": 1,
-      "description": "Answer customer questions, resolve routine issues, and document service needs."
+      "description": "Answer customer questions, resolve routine issues, and document service needs.",
+      "category": "people"
     },
     {
       "code": "vcp-transport-dispatch-coordinator",
       "title": "Transport dispatch coordinator",
       "interests": "CE",
       "preparation": 2,
-      "description": "Coordinate vehicles or service teams and maintain dispatch records."
+      "description": "Coordinate vehicles or service teams and maintain dispatch records.",
+      "category": "logistics"
     },
     {
       "code": "vcp-regulatory-compliance-specialist",
       "title": "Regulatory compliance specialist",
       "interests": "CI",
       "preparation": 4,
-      "description": "Review procedures and records against applicable requirements."
+      "description": "Review procedures and records against applicable requirements.",
+      "category": "public"
     },
     {
       "code": "vcp-personnel-records-coordinator",
       "title": "Personnel records coordinator",
       "interests": "CS",
       "preparation": 2,
-      "description": "Maintain personnel records and support employee administration."
+      "description": "Maintain personnel records and support employee administration.",
+      "category": "people"
     },
     {
       "code": "vcp-it-help-desk-specialist",
       "title": "IT help desk specialist",
       "interests": "IS",
       "preparation": 3,
-      "description": "Troubleshoot computer problems and help people use technology."
+      "description": "Troubleshoot computer problems and help people use technology.",
+      "category": "technology"
     },
     {
       "code": "vcp-site-security-officer",
       "title": "Site security officer",
       "interests": "RC",
       "preparation": 1,
-      "description": "Observe sites, document incidents, and follow security procedures."
+      "description": "Observe sites, document incidents, and follow security procedures.",
+      "category": "public"
     },
     {
       "code": "vcp-investigations-specialist",
       "title": "Investigations specialist",
       "interests": "IE",
       "preparation": 3,
-      "description": "Gather evidence and investigate incidents within legal authority."
+      "description": "Gather evidence and investigate incidents within legal authority.",
+      "category": "public"
     },
     {
       "code": "vcp-community-policing-officer",
       "title": "Community policing officer",
       "interests": "RS",
       "preparation": 2,
-      "description": "Respond to incidents, assist the public, and enforce applicable laws."
+      "description": "Respond to incidents, assist the public, and enforce applicable laws.",
+      "category": "public"
     },
     {
       "code": "vcp-safety-inspection-technician",
       "title": "Safety inspection technician",
       "interests": "RC",
       "preparation": 3,
-      "description": "Inspect workplaces, collect safety information, and support hazard prevention."
+      "description": "Inspect workplaces, collect safety information, and support hazard prevention.",
+      "category": "public"
     },
     {
       "code": "vcp-network-support-technician",
       "title": "Network support technician",
       "interests": "IR",
       "preparation": 3,
-      "description": "Troubleshoot network operations and document technical solutions."
+      "description": "Troubleshoot network operations and document technical solutions.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-diesel-fleet-technician",
+      "title": "Diesel fleet technician",
+      "interests": "RI",
+      "preparation": 2,
+      "description": "Keep commercial fleets moving by diagnosing engine faults and planning repairs.",
+      "category": "trades"
+    },
+    {
+      "code": "vcp-industrial-machinery-technician",
+      "title": "Industrial machinery technician",
+      "interests": "RI",
+      "preparation": 2,
+      "description": "Find mechanical problems in production equipment and restore reliable operation.",
+      "category": "trades"
+    },
+    {
+      "code": "vcp-building-automation-technician",
+      "title": "Building automation technician",
+      "interests": "RI",
+      "preparation": 3,
+      "description": "Connect building controls, check sensor readings, and resolve comfort or efficiency issues.",
+      "category": "trades"
+    },
+    {
+      "code": "vcp-solar-installation-technician",
+      "title": "Solar installation technician",
+      "interests": "RC",
+      "preparation": 2,
+      "description": "Assemble solar equipment, follow site plans, and document safe installation work.",
+      "category": "trades"
+    },
+    {
+      "code": "vcp-water-system-operator",
+      "title": "Water system operator",
+      "interests": "RC",
+      "preparation": 2,
+      "description": "Monitor treatment equipment, record water quality checks, and respond to operating issues.",
+      "category": "trades"
+    },
+    {
+      "code": "vcp-appliance-service-technician",
+      "title": "Appliance service technician",
+      "interests": "RI",
+      "preparation": 2,
+      "description": "Visit customers, identify appliance faults, and explain repair options.",
+      "category": "trades"
+    },
+    {
+      "code": "vcp-construction-site-coordinator",
+      "title": "Construction site coordinator",
+      "interests": "EC",
+      "preparation": 2,
+      "description": "Keep crews, deliveries, site records, and daily work plans aligned.",
+      "category": "trades"
+    },
+    {
+      "code": "vcp-carpentry-specialist",
+      "title": "Carpentry specialist",
+      "interests": "RA",
+      "preparation": 2,
+      "description": "Measure, build, and repair structures using drawings and precise tool work.",
+      "category": "trades"
+    },
+    {
+      "code": "vcp-fleet-operations-coordinator",
+      "title": "Fleet operations coordinator",
+      "interests": "EC",
+      "preparation": 2,
+      "description": "Arrange vehicle availability, maintenance appointments, and driver assignments.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-warehouse-team-leader",
+      "title": "Warehouse team leader",
+      "interests": "ER",
+      "preparation": 2,
+      "description": "Coordinate receiving, storage, order handling, and safe warehouse routines.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-route-planning-specialist",
+      "title": "Route planning specialist",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Compare routes, delivery windows, and vehicle capacity to improve transport plans.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-materials-planning-specialist",
+      "title": "Materials planning specialist",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Forecast material needs and reconcile purchasing plans with production schedules.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-import-and-export-coordinator",
+      "title": "Import and export coordinator",
+      "interests": "CE",
+      "preparation": 3,
+      "description": "Prepare shipment documents and coordinate customs and delivery requirements.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-freight-brokerage-representative",
+      "title": "Freight brokerage representative",
+      "interests": "EC",
+      "preparation": 2,
+      "description": "Connect shipping customers with carriers and track transport commitments.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-rail-operations-coordinator",
+      "title": "Rail operations coordinator",
+      "interests": "RC",
+      "preparation": 2,
+      "description": "Support train movements, operating records, and communication under rail safety procedures.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-airport-ground-operations-coordinator",
+      "title": "Airport ground operations coordinator",
+      "interests": "EC",
+      "preparation": 2,
+      "description": "Coordinate ground teams, equipment readiness, and time-sensitive aircraft turnarounds.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-passenger-services-representative",
+      "title": "Passenger services representative",
+      "interests": "SC",
+      "preparation": 1,
+      "description": "Help travelers understand schedules, resolve travel issues, and complete check-in tasks.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-parts-counter-specialist",
+      "title": "Parts counter specialist",
+      "interests": "CR",
+      "preparation": 1,
+      "description": "Identify needed components, track stock, and help customers order suitable parts.",
+      "category": "logistics"
+    },
+    {
+      "code": "vcp-cloud-operations-technician",
+      "title": "Cloud operations technician",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Watch hosted systems, respond to alerts, and document service recovery work.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-software-quality-tester",
+      "title": "Software quality tester",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Try realistic software workflows, report defects, and confirm fixes.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-database-support-specialist",
+      "title": "Database support specialist",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Maintain structured records, investigate data issues, and support reliable queries.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-cyber-incident-response-specialist",
+      "title": "Cyber incident response specialist",
+      "interests": "IR",
+      "preparation": 4,
+      "description": "Investigate digital incidents and coordinate documented containment and recovery steps.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-security-operations-technician",
+      "title": "Security operations technician",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Review security alerts and escalate unusual system activity using defined procedures.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-geospatial-analysis-technician",
+      "title": "Geospatial analysis technician",
+      "interests": "IA",
+      "preparation": 3,
+      "description": "Combine maps and location data to explain patterns and support planning.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-technical-customer-success-specialist",
+      "title": "Technical customer success specialist",
+      "interests": "SE",
+      "preparation": 3,
+      "description": "Help customers adopt technical products and solve recurring usage problems.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-it-asset-coordinator",
+      "title": "IT asset coordinator",
+      "interests": "CI",
+      "preparation": 2,
+      "description": "Track devices, software assignments, repairs, and equipment lifecycle records.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-automation-workflow-developer",
+      "title": "Automation workflow developer",
+      "interests": "IA",
+      "preparation": 3,
+      "description": "Build small software workflows that reduce repetitive office or operational tasks.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-network-infrastructure-installer",
+      "title": "Network infrastructure installer",
+      "interests": "RI",
+      "preparation": 2,
+      "description": "Install cabling and connectivity equipment and verify reliable network connections.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-accessibility-testing-specialist",
+      "title": "Accessibility testing specialist",
+      "interests": "IS",
+      "preparation": 3,
+      "description": "Check digital services for access barriers and document practical improvements.",
+      "category": "technology"
+    },
+    {
+      "code": "vcp-quality-assurance-technician",
+      "title": "Quality assurance technician",
+      "interests": "CI",
+      "preparation": 2,
+      "description": "Inspect products, record variations, and help teams correct quality problems.",
+      "category": "engineering"
+    },
+    {
+      "code": "vcp-calibration-technician",
+      "title": "Calibration technician",
+      "interests": "IR",
+      "preparation": 3,
+      "description": "Compare instruments with reference standards and document measurement adjustments.",
+      "category": "engineering"
+    },
+    {
+      "code": "vcp-manufacturing-team-coordinator",
+      "title": "Manufacturing team coordinator",
+      "interests": "EC",
+      "preparation": 2,
+      "description": "Balance shift assignments, production targets, and communication across work cells.",
+      "category": "engineering"
+    },
+    {
+      "code": "vcp-technical-drawing-specialist",
+      "title": "Technical drawing specialist",
+      "interests": "AR",
+      "preparation": 3,
+      "description": "Create precise drawings that communicate how parts, spaces, or assemblies fit together.",
+      "category": "engineering"
+    },
+    {
+      "code": "vcp-reliability-planning-specialist",
+      "title": "Reliability planning specialist",
+      "interests": "IC",
+      "preparation": 4,
+      "description": "Use failure records and maintenance history to plan more dependable equipment operation.",
+      "category": "engineering"
+    },
+    {
+      "code": "vcp-test-and-evaluation-coordinator",
+      "title": "Test and evaluation coordinator",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Organize test plans, equipment checks, observations, and issue reports.",
+      "category": "engineering"
+    },
+    {
+      "code": "vcp-packaging-improvement-technician",
+      "title": "Packaging improvement technician",
+      "interests": "IR",
+      "preparation": 2,
+      "description": "Test packaging methods for safe handling, repeatable quality, and efficient shipping.",
+      "category": "engineering"
+    },
+    {
+      "code": "vcp-process-documentation-coordinator",
+      "title": "Process documentation coordinator",
+      "interests": "CI",
+      "preparation": 2,
+      "description": "Keep work instructions current and help teams follow consistent production methods.",
+      "category": "engineering"
+    },
+    {
+      "code": "vcp-medical-scheduling-coordinator",
+      "title": "Medical scheduling coordinator",
+      "interests": "CS",
+      "preparation": 1,
+      "description": "Arrange appointments and help patients understand practical visit requirements.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-health-information-technician",
+      "title": "Health information technician",
+      "interests": "CI",
+      "preparation": 3,
+      "description": "Organize clinical records and check documentation against healthcare information rules.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-medical-equipment-service-technician",
+      "title": "Medical equipment service technician",
+      "interests": "RI",
+      "preparation": 3,
+      "description": "Inspect and troubleshoot clinical devices under required service and safety procedures.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-rehabilitation-support-assistant",
+      "title": "Rehabilitation support assistant",
+      "interests": "SR",
+      "preparation": 2,
+      "description": "Help a care team prepare equipment and support approved rehabilitation activities.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-pharmacy-support-technician",
+      "title": "Pharmacy support technician",
+      "interests": "CS",
+      "preparation": 2,
+      "description": "Support medication inventory and dispensing workflows within applicable supervision rules.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-dental-support-assistant",
+      "title": "Dental support assistant",
+      "interests": "SR",
+      "preparation": 2,
+      "description": "Prepare treatment spaces and assist a dental team within local authorization requirements.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-health-program-coordinator",
+      "title": "Health program coordinator",
+      "interests": "SE",
+      "preparation": 3,
+      "description": "Organize wellness services, participant communications, and program follow-up.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-patient-navigation-specialist",
+      "title": "Patient navigation specialist",
+      "interests": "SC",
+      "preparation": 2,
+      "description": "Help people coordinate appointments, paperwork, and access to healthcare services.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-nutrition-services-coordinator",
+      "title": "Nutrition services coordinator",
+      "interests": "CS",
+      "preparation": 2,
+      "description": "Coordinate food service routines and support accurate dietary service records.",
+      "category": "health"
+    },
+    {
+      "code": "vcp-veteran-transition-navigator",
+      "title": "Veteran transition navigator",
+      "interests": "SE",
+      "preparation": 2,
+      "description": "Help veterans find career, education, and community resources without promising eligibility.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-adult-learning-facilitator",
+      "title": "Adult learning facilitator",
+      "interests": "SA",
+      "preparation": 3,
+      "description": "Turn practical knowledge into approachable lessons for adult learners.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-school-operations-coordinator",
+      "title": "School operations coordinator",
+      "interests": "CS",
+      "preparation": 2,
+      "description": "Support school schedules, records, and everyday communication with staff and families.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-apprenticeship-program-coordinator",
+      "title": "Apprenticeship program coordinator",
+      "interests": "SE",
+      "preparation": 3,
+      "description": "Connect learners, trainers, and employers and keep program milestones organized.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-nonprofit-program-assistant",
+      "title": "Nonprofit program assistant",
+      "interests": "SC",
+      "preparation": 1,
+      "description": "Support community events, participant follow-up, and routine program administration.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-volunteer-services-coordinator",
+      "title": "Volunteer services coordinator",
+      "interests": "SE",
+      "preparation": 2,
+      "description": "Recruit volunteers, match assignments, and keep service activities running smoothly.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-emergency-preparedness-educator",
+      "title": "Emergency preparedness educator",
+      "interests": "SR",
+      "preparation": 3,
+      "description": "Teach practical preparedness habits and help communities rehearse safe response steps.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-library-services-assistant",
+      "title": "Library services assistant",
+      "interests": "CS",
+      "preparation": 1,
+      "description": "Help visitors find materials and keep public information resources organized.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-community-outreach-coordinator",
+      "title": "Community outreach coordinator",
+      "interests": "SE",
+      "preparation": 2,
+      "description": "Build local relationships and explain services through clear events and communications.",
+      "category": "community"
+    },
+    {
+      "code": "vcp-business-continuity-coordinator",
+      "title": "Business continuity coordinator",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Document service dependencies and help teams plan for operational interruptions.",
+      "category": "business"
+    },
+    {
+      "code": "vcp-small-business-operations-lead",
+      "title": "Small business operations lead",
+      "interests": "EC",
+      "preparation": 3,
+      "description": "Coordinate customers, budgets, suppliers, and delivery in a small organization.",
+      "category": "business"
+    },
+    {
+      "code": "vcp-contract-administration-specialist",
+      "title": "Contract administration specialist",
+      "interests": "CE",
+      "preparation": 3,
+      "description": "Track contract obligations, correspondence, and delivery milestones.",
+      "category": "business"
+    },
+    {
+      "code": "vcp-change-coordination-specialist",
+      "title": "Change coordination specialist",
+      "interests": "ES",
+      "preparation": 3,
+      "description": "Help teams understand new processes and keep change activities organized.",
+      "category": "business"
+    },
+    {
+      "code": "vcp-program-delivery-specialist",
+      "title": "Program delivery specialist",
+      "interests": "EC",
+      "preparation": 4,
+      "description": "Coordinate related projects, track commitments, and report practical progress.",
+      "category": "business"
+    },
+    {
+      "code": "vcp-event-operations-coordinator",
+      "title": "Event operations coordinator",
+      "interests": "EA",
+      "preparation": 2,
+      "description": "Organize venues, suppliers, schedules, and participant communications.",
+      "category": "business"
+    },
+    {
+      "code": "vcp-service-improvement-coordinator",
+      "title": "Service improvement coordinator",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Gather service issues and help staff test more effective ways of working.",
+      "category": "business"
+    },
+    {
+      "code": "vcp-remote-team-coordinator",
+      "title": "Remote team coordinator",
+      "interests": "EC",
+      "preparation": 2,
+      "description": "Keep distributed teams aligned through schedules, written updates, and follow-up.",
+      "category": "business"
+    },
+    {
+      "code": "vcp-employee-onboarding-coordinator",
+      "title": "Employee onboarding coordinator",
+      "interests": "SC",
+      "preparation": 2,
+      "description": "Guide new employees through practical joining steps and required information.",
+      "category": "people"
+    },
+    {
+      "code": "vcp-benefits-services-assistant",
+      "title": "Benefits services assistant",
+      "interests": "CS",
+      "preparation": 2,
+      "description": "Help employees navigate benefit paperwork and route policy questions to the right experts.",
+      "category": "people"
+    },
+    {
+      "code": "vcp-customer-account-coordinator",
+      "title": "Customer account coordinator",
+      "interests": "EC",
+      "preparation": 2,
+      "description": "Track customer requests, coordinate internal follow-up, and explain service progress.",
+      "category": "people"
+    },
+    {
+      "code": "vcp-technical-sales-representative",
+      "title": "Technical sales representative",
+      "interests": "EI",
+      "preparation": 3,
+      "description": "Explain technical products and connect customer needs with suitable solutions.",
+      "category": "people"
+    },
+    {
+      "code": "vcp-hospitality-team-supervisor",
+      "title": "Hospitality team supervisor",
+      "interests": "ES",
+      "preparation": 2,
+      "description": "Support frontline staff, service schedules, and practical guest problem solving.",
+      "category": "people"
+    },
+    {
+      "code": "vcp-retail-operations-supervisor",
+      "title": "Retail operations supervisor",
+      "interests": "EC",
+      "preparation": 2,
+      "description": "Coordinate store routines, stock availability, staff assignments, and customer service.",
+      "category": "people"
+    },
+    {
+      "code": "vcp-community-partnership-specialist",
+      "title": "Community partnership specialist",
+      "interests": "ES",
+      "preparation": 3,
+      "description": "Build working relationships between organizations and coordinate shared activities.",
+      "category": "people"
+    },
+    {
+      "code": "vcp-employee-relations-coordinator",
+      "title": "Employee relations coordinator",
+      "interests": "SC",
+      "preparation": 3,
+      "description": "Maintain personnel case records and support fair, clearly documented workplace processes.",
+      "category": "people"
+    },
+    {
+      "code": "vcp-payroll-operations-specialist",
+      "title": "Payroll operations specialist",
+      "interests": "CI",
+      "preparation": 2,
+      "description": "Check time records, investigate pay discrepancies, and prepare accurate payroll inputs.",
+      "category": "finance"
+    },
+    {
+      "code": "vcp-budget-support-analyst",
+      "title": "Budget support analyst",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Track spending plans, compare actual costs, and prepare clear budget summaries.",
+      "category": "finance"
+    },
+    {
+      "code": "vcp-insurance-claims-coordinator",
+      "title": "Insurance claims coordinator",
+      "interests": "CI",
+      "preparation": 2,
+      "description": "Collect case information and track claim processing through established procedures.",
+      "category": "finance"
+    },
+    {
+      "code": "vcp-records-management-technician",
+      "title": "Records management technician",
+      "interests": "CI",
+      "preparation": 2,
+      "description": "Classify documents, apply retention processes, and make information easier to retrieve.",
+      "category": "finance"
+    },
+    {
+      "code": "vcp-grants-administration-assistant",
+      "title": "Grants administration assistant",
+      "interests": "CE",
+      "preparation": 2,
+      "description": "Track award documents, reporting dates, and supporting financial records.",
+      "category": "finance"
+    },
+    {
+      "code": "vcp-legal-operations-assistant",
+      "title": "Legal operations assistant",
+      "interests": "CI",
+      "preparation": 3,
+      "description": "Organize case documents and coordinate administrative tasks under appropriate supervision.",
+      "category": "finance"
+    },
+    {
+      "code": "vcp-billing-support-specialist",
+      "title": "Billing support specialist",
+      "interests": "CS",
+      "preparation": 1,
+      "description": "Prepare invoices, resolve routine account questions, and track payment records.",
+      "category": "finance"
+    },
+    {
+      "code": "vcp-purchasing-support-clerk",
+      "title": "Purchasing support clerk",
+      "interests": "CE",
+      "preparation": 1,
+      "description": "Prepare order records, confirm delivery information, and maintain supplier details.",
+      "category": "finance"
+    },
+    {
+      "code": "vcp-instructional-content-designer",
+      "title": "Instructional content designer",
+      "interests": "AS",
+      "preparation": 3,
+      "description": "Create clear learning materials that help people practice useful skills.",
+      "category": "creative"
+    },
+    {
+      "code": "vcp-digital-communications-coordinator",
+      "title": "Digital communications coordinator",
+      "interests": "AE",
+      "preparation": 2,
+      "description": "Plan online updates and turn organizational news into clear audience messages.",
+      "category": "creative"
+    },
+    {
+      "code": "vcp-technical-presentation-designer",
+      "title": "Technical presentation designer",
+      "interests": "AI",
+      "preparation": 3,
+      "description": "Turn detailed information into understandable slides, diagrams, and visual explanations.",
+      "category": "creative"
+    },
+    {
+      "code": "vcp-community-storytelling-producer",
+      "title": "Community storytelling producer",
+      "interests": "AS",
+      "preparation": 3,
+      "description": "Interview people and shape their experiences into respectful written or visual stories.",
+      "category": "creative"
+    },
+    {
+      "code": "vcp-exhibit-and-wayfinding-designer",
+      "title": "Exhibit and wayfinding designer",
+      "interests": "AR",
+      "preparation": 3,
+      "description": "Design displays and signs that help people understand spaces and information.",
+      "category": "creative"
+    },
+    {
+      "code": "vcp-audio-production-technician",
+      "title": "Audio production technician",
+      "interests": "RA",
+      "preparation": 2,
+      "description": "Record, edit, and prepare sound for training, events, or media projects.",
+      "category": "creative"
+    },
+    {
+      "code": "vcp-emergency-management-coordinator",
+      "title": "Emergency management coordinator",
+      "interests": "EC",
+      "preparation": 3,
+      "description": "Organize readiness plans and help agencies coordinate during disruptions.",
+      "category": "public"
+    },
+    {
+      "code": "vcp-public-works-coordinator",
+      "title": "Public works coordinator",
+      "interests": "RC",
+      "preparation": 2,
+      "description": "Support municipal maintenance schedules, field requests, and service records.",
+      "category": "public"
+    },
+    {
+      "code": "vcp-permit-services-specialist",
+      "title": "Permit services specialist",
+      "interests": "CS",
+      "preparation": 2,
+      "description": "Guide applicants through permit steps and maintain complete application records.",
+      "category": "public"
+    },
+    {
+      "code": "vcp-court-services-coordinator",
+      "title": "Court services coordinator",
+      "interests": "CS",
+      "preparation": 2,
+      "description": "Support case scheduling, public inquiries, and accurate court administration.",
+      "category": "public"
+    },
+    {
+      "code": "vcp-protective-services-dispatcher",
+      "title": "Protective services dispatcher",
+      "interests": "CS",
+      "preparation": 2,
+      "description": "Receive urgent service requests and relay clear information under dispatch procedures.",
+      "category": "public"
+    },
+    {
+      "code": "vcp-fraud-prevention-analyst",
+      "title": "Fraud prevention analyst",
+      "interests": "IC",
+      "preparation": 3,
+      "description": "Review unusual transaction patterns and document findings for further investigation.",
+      "category": "public"
+    },
+    {
+      "code": "vcp-physical-security-systems-coordinator",
+      "title": "Physical security systems coordinator",
+      "interests": "IR",
+      "preparation": 3,
+      "description": "Maintain site access systems and coordinate security equipment checks.",
+      "category": "public"
+    },
+    {
+      "code": "vcp-public-procurement-analyst",
+      "title": "Public procurement analyst",
+      "interests": "CI",
+      "preparation": 3,
+      "description": "Review purchasing records and help public organizations follow procurement procedures.",
+      "category": "public"
+    },
+    {
+      "code": "vcp-conservation-field-technician",
+      "title": "Conservation field technician",
+      "interests": "RI",
+      "preparation": 2,
+      "description": "Collect field observations and help maintain land, habitat, or natural resources.",
+      "category": "environment"
+    },
+    {
+      "code": "vcp-renewable-energy-operations-technician",
+      "title": "Renewable energy operations technician",
+      "interests": "RI",
+      "preparation": 3,
+      "description": "Monitor clean energy equipment and document operating and maintenance issues.",
+      "category": "environment"
+    },
+    {
+      "code": "vcp-utility-field-service-representative",
+      "title": "Utility field service representative",
+      "interests": "RS",
+      "preparation": 2,
+      "description": "Visit service locations, explain work requirements, and record field findings.",
+      "category": "environment"
+    },
+    {
+      "code": "vcp-sustainability-program-coordinator",
+      "title": "Sustainability program coordinator",
+      "interests": "IE",
+      "preparation": 3,
+      "description": "Track resource use and help teams carry out practical environmental improvements.",
+      "category": "environment"
+    },
+    {
+      "code": "vcp-agricultural-operations-technician",
+      "title": "Agricultural operations technician",
+      "interests": "RC",
+      "preparation": 2,
+      "description": "Maintain agricultural equipment, field schedules, and production records.",
+      "category": "environment"
+    },
+    {
+      "code": "vcp-survey-field-assistant",
+      "title": "Survey field assistant",
+      "interests": "RI",
+      "preparation": 2,
+      "description": "Set up survey equipment and record accurate site measurements under supervision.",
+      "category": "environment"
+    },
+    {
+      "code": "vcp-waste-reduction-coordinator",
+      "title": "Waste reduction coordinator",
+      "interests": "IC",
+      "preparation": 2,
+      "description": "Review material flows and coordinate practical reuse and waste handling routines.",
+      "category": "environment"
+    },
+    {
+      "code": "vcp-parks-operations-coordinator",
+      "title": "Parks operations coordinator",
+      "interests": "RS",
+      "preparation": 2,
+      "description": "Coordinate public space upkeep, visitor needs, and field crew schedules.",
+      "category": "environment"
+    }
+  ],
+  "categories": [
+    {
+      "key": "trades",
+      "name": "Skilled trades & maintenance"
+    },
+    {
+      "key": "logistics",
+      "name": "Logistics, transportation & supply"
+    },
+    {
+      "key": "technology",
+      "name": "Technology, data & cybersecurity"
+    },
+    {
+      "key": "engineering",
+      "name": "Engineering, quality & manufacturing"
+    },
+    {
+      "key": "health",
+      "name": "Healthcare & wellness"
+    },
+    {
+      "key": "community",
+      "name": "Education & community support"
+    },
+    {
+      "key": "business",
+      "name": "Business, projects & leadership"
+    },
+    {
+      "key": "people",
+      "name": "People, customers & sales"
+    },
+    {
+      "key": "finance",
+      "name": "Finance, records & administration"
+    },
+    {
+      "key": "creative",
+      "name": "Design, media & communication"
+    },
+    {
+      "key": "public",
+      "name": "Public service, safety & security"
+    },
+    {
+      "key": "environment",
+      "name": "Environment, energy & fieldwork"
     }
   ]
 }

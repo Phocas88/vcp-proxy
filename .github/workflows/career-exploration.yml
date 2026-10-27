@@ -4,24 +4,30 @@ on:
     paths:
       - 'api/_lib/career-matches.js'
       - 'api/_lib/career-saved.js'
+      - 'api/_lib/resume-delete.js'
+      - 'api/_lib/resume-templates.js'
       - 'api/_lib/previous-career-ids.json'
       - 'api/_lib/career-catalog.json'
       - 'api/_lib/resume-workspace/review.mjs'
       - 'api/_lib/resume-program.js'
       - 'test/career-matches.test.js'
       - 'test/career-saved.test.js'
+      - 'test/resume-delete.test.js'
       - '.github/workflows/career-exploration.yml'
   push:
     branches: [main]
     paths:
       - 'api/_lib/career-matches.js'
       - 'api/_lib/career-saved.js'
+      - 'api/_lib/resume-delete.js'
+      - 'api/_lib/resume-templates.js'
       - 'api/_lib/previous-career-ids.json'
       - 'api/_lib/career-catalog.json'
       - 'api/_lib/resume-workspace/review.mjs'
       - 'api/_lib/resume-program.js'
       - 'test/career-matches.test.js'
       - 'test/career-saved.test.js'
+      - 'test/resume-delete.test.js'
       - '.github/workflows/career-exploration.yml'
 permissions:
   contents: read

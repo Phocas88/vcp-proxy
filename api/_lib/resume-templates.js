@@ -31,7 +31,7 @@ async function handleTemplates({req,res,ref,data,db,uid,id,stripe,key,now,checkP
  const document=action==='template-finish'?{...documentInput(req.body.document),buildId:id}:null;
  // Claim the included template atomically. Two tabs cannot claim two free designs.
  if(action==='template-finish'){
-  const result=await db.runTransaction(async tx=>{const s=await tx.get(ref),d=s.data();if(d.status==='deleted')throw fail(410,'This build was deleted.');if(d.includedTemplate&&d.includedTemplate!==design)return null;const templates=[...new Set([...(d.templates||[]),design])];tx.update(ref,{includedTemplate:design,templates,updatedAt:now()});tx.set(finished,{document,updatedAt:now()});return {templates,includedTemplate:design,document};});
+  const result=await db.runTransaction(async tx=>{const s=await tx.get(ref),d=s.data();if(d.status==='deleted')throw fail(410,'This build was deleted.');if(d.includedTemplate&&d.includedTemplate!==design)return null;const templates=[...new Set([...(d.templates||[]),design])];tx.update(ref,{includedTemplate:design,templates,deletedTemplates:(d.deletedTemplates||[]).filter(value=>value!==design),updatedAt:now()});tx.set(finished,{document,updatedAt:now()});return {templates,includedTemplate:design,document};});
   if(result)return res.status(200).json(result);
  }
  const snap=await order.get();let purchase=snap.exists?snap.data():null;
@@ -39,7 +39,7 @@ async function handleTemplates({req,res,ref,data,db,uid,id,stripe,key,now,checkP
   const session=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(purchase.sessionId)+'?expand[]=payment_intent.latest_charge',key,AbortSignal.timeout(12000));
   if(checkTemplatePayment(session,uid,id,design,purchase.sessionId)){
    const saved=document||purchase.document||(await finished.get()).data()?.document;if(!saved)throw fail(409,'Reopen this template and finish saving it.');
-   const result=await db.runTransaction(async tx=>{const s=await tx.get(ref),d=s.data();if(d.status==='deleted')throw fail(410,'This build was deleted.');const templates=[...new Set([...(d.templates||[]),design])];tx.update(ref,{templates,updatedAt:now()});tx.set(finished,{document:saved,updatedAt:now()});tx.update(order,{status:'paid',document:null,updatedAt:now()});return {templates,includedTemplate:d.includedTemplate,document:saved};});
+   const result=await db.runTransaction(async tx=>{const s=await tx.get(ref),d=s.data();if(d.status==='deleted')throw fail(410,'This build was deleted.');const templates=[...new Set([...(d.templates||[]),design])];tx.update(ref,{templates,deletedTemplates:(d.deletedTemplates||[]).filter(value=>value!==design),updatedAt:now()});tx.set(finished,{document:saved,updatedAt:now()});tx.update(order,{status:'paid',document:null,updatedAt:now()});return {templates,includedTemplate:d.includedTemplate,document:saved};});
    return res.status(200).json(result);
   }
   if(action==='template-verify')throw fail(402,'This template checkout is not complete. Resume it without paying twice.');

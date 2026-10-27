@@ -3,6 +3,7 @@
 // resume text, owner IDs and alleged purchase flags never select the source.
 const crypto=require('node:crypto');
 const {normalizeMatches,generateMatches}=require('./career-matches');
+const catalogVersion=require('./career-catalog.json').version;
 const fail=(status,message)=>Object.assign(new Error(message),{public:true,status});
 function savedInput(record){
  if(record?.document?.resume)return record.document;
@@ -25,7 +26,7 @@ async function handleSavedCareerMatches({req,res,sourceRef,parentRef,db,deps,uid
  try{
   const {validateInput}=await import('./resume-workspace/review.mjs');
   const read=async tx=>{if(parentRef){const parent=tx?await tx.get(parentRef):await parentRef.get();if(!parent.exists||parent.data().status==='deleted')throw fail(410,'This purchased resume was deleted.');}const snapshot=tx?await tx.get(sourceRef):await sourceRef.get();if(!snapshot.exists)throw fail(404,'That resume is no longer saved in this account. Refresh the resume list.');const record=snapshot.data();return {record,input:validateInput(savedInput(record))};};
-  const fingerprint=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const fingerprint=value=>crypto.createHash('sha256').update(JSON.stringify([catalogVersion,value])).digest('hex');
   const source=await read(),hash=fingerprint(source.input);
   const cached=await db.runTransaction(async tx=>{const current=await read(tx);if(fingerprint(current.input)!==hash)throw fail(409,'The resume changed. Select it again to assess its saved version.');const cache=current.record.careerAssessmentV2;if(cache?.fingerprint===hash&&Array.isArray(cache.matches))return normalizeMatches(cache.matches,current.input);if(req.body.consent!==true)throw fail(400,'Agree to AI assessment and private recovery storage first.');if(cache?.leaseUntil>now())throw fail(409,'This resume is already being assessed. Wait a moment, then retry.');lease=crypto.randomUUID();tx.update(sourceRef,{careerAssessmentV2:{fingerprint:hash,lease,leaseUntil:now()+150000}});return null;});
   if(cached)return reply(200,{matches:cached,source:'selected saved resume'});
