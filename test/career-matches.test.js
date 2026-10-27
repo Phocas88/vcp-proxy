@@ -12,3 +12,12 @@ test('manual edits do not silently reuse a purchase for a second career assessme
 test('failed generation releases its lease so a retry can recover the same purchase',async()=>{let fail=true;const s=fixture({generate:async()=>{if(fail)throw new Error('Fixture outage');return [match];}});assert.equal((await s.run()).code,503);assert.equal(s.data.careerAssessmentLease,null);fail=false;assert.equal((await s.run()).code,200);assert.equal(s.calls,2);});
 test('deletion during assessment cannot resurrect the resume data or career matches',async()=>{let s;s=fixture({generate:async()=>{s.data={...s.data,status:'deleted'};return [match];}});assert.equal((await s.run()).code,409);assert.equal(s.data.careerAssessment,undefined);});
 test('existing review matches are recovered after payment verification without a second generation',async()=>{const s=fixture({data:{status:'complete',input,result:{careerMatches:[match]}}});const result=await s.run();assert.equal(result.code,200);assert.equal(result.body.source,'review');assert.equal(s.calls,0);});
+
+test('expanded matching supports 24 unique evidence-backed roles without padding unsupported suggestions',()=>{
+ const catalog=require('../api/_lib/career-catalog.json');const values=catalog.occupations.slice(0,30).map(o=>({...match,code:o.code}));
+ assert.equal(normalizeMatches(values,input).length,24);assert.equal(normalizeMatches(values.map(v=>({...v,evidence:'Invented unsupported experience'})),input).length,0);
+ assert.match(instructions,/up to 24/);assert.match(instructions,/Never add an unsupported career/);
+});
+test('explicit expansion of an earlier short review generates and recovers a broad career assessment',async()=>{
+ const s=fixture({data:{status:'complete',input,result:{careerMatches:[match]}}});assert.equal((await s.run({expand:true})).code,200);assert.equal(s.calls,1);assert.equal((await s.run({expand:true})).code,200);assert.equal(s.calls,1);
+});
