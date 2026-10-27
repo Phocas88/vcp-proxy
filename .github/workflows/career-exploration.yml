@@ -1,0 +1,32 @@
+name: Verify resume career matching
+on:
+  pull_request:
+    paths:
+      - 'api/_lib/career-matches.js'
+      - 'api/_lib/career-catalog.json'
+      - 'api/_lib/resume-workspace/review.mjs'
+      - 'api/_lib/resume-program.js'
+      - 'test/career-matches.test.js'
+      - '.github/workflows/career-exploration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api/_lib/career-matches.js'
+      - 'api/_lib/career-catalog.json'
+      - 'api/_lib/resume-workspace/review.mjs'
+      - 'api/_lib/resume-program.js'
+      - 'test/career-matches.test.js'
+      - '.github/workflows/career-exploration.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Verify evidence, ownership, payment, recovery and existing backend behavior
+        run: npm test
