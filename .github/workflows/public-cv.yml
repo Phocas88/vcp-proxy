@@ -4,6 +4,8 @@ on:
     paths:
       - 'api/veteran/**'
       - 'api/_lib/digital-cv-page.js'
+      - 'api/_lib/cv-content.js'
+      - 'api/_lib/resume-text.js'
       - 'test/digital-cv-page.test.js'
       - 'scripts/verify-public-cv.cjs'
       - 'scripts/fixtures/public-cv.cjs'
@@ -13,6 +15,8 @@ on:
     paths:
       - 'api/veteran/**'
       - 'api/_lib/digital-cv-page.js'
+      - 'api/_lib/cv-content.js'
+      - 'api/_lib/resume-text.js'
       - 'test/digital-cv-page.test.js'
       - 'scripts/verify-public-cv.cjs'
       - 'scripts/fixtures/public-cv.cjs'
