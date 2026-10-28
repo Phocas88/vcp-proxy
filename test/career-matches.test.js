@@ -44,3 +44,13 @@ test('a second look recovers overlooked fields without weakening evidence or sen
  global.fetch=async(url,request)=>{requests.push(JSON.parse(request.body));const matches=requests.length===1?selected.slice(0,2).map(candidate):selected.map(candidate);return {ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify({matches})}]}]})};};
  try{const results=await generateMatches(source);assert.equal(requests.length,2);assert.equal(results.length,12);assert.equal(new Set(results.map(m=>catalog.occupations.find(o=>o.code===m.code).category)).size,12);assert.ok(results.every(m=>source.resume.includes(m.evidence)));for(const request of requests){assert.ok(!request.input.includes('TARGET'));assert.equal(request.store,false);assert.match(request.instructions,/ENTIRE resume/);}}finally{global.fetch=previousFetch;if(previousKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=previousKey;}
 });
+
+test('the provider schema constrains every evidence choice to unchanged original source passages',async()=>{
+ const previousFetch=global.fetch,previousKey=process.env.OPENAI_API_KEY;process.env.OPENAI_API_KEY='fictional-test-key';let request;
+ global.fetch=async(url,options)=>{request=JSON.parse(options.body);return {ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify({matches:[match]})}]}]})};};
+ try{await generateMatches({...input,role:'TARGET NOT TO SEND'});const facts=JSON.parse(request.input);assert.ok(facts.evidencePassages.every(p=>(input.resume+'\n'+input.additionalDetails).includes(p)));assert.deepEqual(request.text.format.schema.properties.matches.items.properties.evidence.enum,facts.evidencePassages);assert.ok(!JSON.stringify(facts).includes('TARGET'));}finally{global.fetch=previousFetch;if(previousKey===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=previousKey;}
+});
+test('evidence choices retain later resume sections, original typography and unbroken source passages',()=>{
+ const {evidencePassages}=require('../api/_lib/career-evidence');const source='First duty: maintained records.\r\nA second duty with “quotes” and oﬃce records.\n'+('Long verified detail '.repeat(100))+'\nFINAL DUTY: coached new employees.';const passages=evidencePassages(source);assert.ok(passages.every(p=>source.includes(p)&&p.length<=1000));assert.ok(passages.some(p=>p.includes('FINAL DUTY')));assert.ok(passages.some(p=>p.includes('oﬃce')));
+ const shortLines=Array.from({length:600},(_,i)=>'Verified '+i).join('\n');const compact=evidencePassages(shortLines);assert.ok(compact.length<=512);assert.ok(compact.every(p=>shortLines.includes(p)));assert.ok(compact.some(p=>p.includes('Verified 599')));
+});

@@ -3,8 +3,8 @@ const crypto=require('node:crypto');
 const catalog=require('./career-catalog.json');
 const previousIds=require('./previous-career-ids.json');
 const occupations=new Map(catalog.occupations.map(item=>[item.code,item]));
-const {evidenceReader}=require('./career-evidence');
-const MATCHING_VERSION='whole-background-v4';
+const {evidenceReader,evidencePassages}=require('./career-evidence');
+const MATCHING_VERSION='whole-background-v5';
 const careerInput=input=>({resume:input.resume,additionalDetails:input.additionalDetails||''});
 const str={type:'string'};
 const matchSchema={type:'object',additionalProperties:false,properties:{code:{type:'string',enum:[...occupations.keys()]},connection:{type:'string',enum:['Experience connection','Transferable skills','Longer-term option']},evidence:str,reason:str,checkNext:str},required:['code','connection','evidence','reason','checkNext']};
@@ -21,28 +21,31 @@ function normalizeMatches(value,input){
  return matches;
 }
 const fail=(status,message)=>Object.assign(new Error(message),{status,public:true});
-async function generatePass(input,prompt,deadline){
- let data;const content=JSON.stringify(careerInput(input));
+async function generatePass(input,prompt,deadline,passages,existingCodes=[]){
+ const groundedSchema={...schema,properties:{matches:{...schema.properties.matches,items:{...matchSchema,properties:{...matchSchema.properties,code:{type:'string',enum:[...occupations.keys()].filter(code=>!existingCodes.includes(code))},evidence:{type:'string',enum:passages}}}}}};
+ prompt+=' For evidence, choose the most relevant exact entry from evidencePassages. Each is copied from the original resume or verified details. Explain the connection using that passage; never rewrite it.';
+ let data;const content=JSON.stringify({...careerInput(input),evidencePassages:passages});
  if(process.env.OPENAI_API_KEY){
-  let response;try{response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+process.env.OPENAI_API_KEY},body:JSON.stringify({model:'gpt-4.1-mini',store:false,instructions:prompt,input:content,max_output_tokens:8000,text:{format:{type:'json_schema',name:'career_matches',strict:true,schema}}}),signal:AbortSignal.timeout(Math.max(1,deadline-Date.now()))});}catch{throw fail(503,'The career assessment could not connect. Retry this existing purchase; no second payment is needed.');}
+  let response;try{response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+process.env.OPENAI_API_KEY},body:JSON.stringify({model:'gpt-4.1-mini',store:false,instructions:prompt,input:content,max_output_tokens:8000,text:{format:{type:'json_schema',name:'career_matches',strict:true,schema:groundedSchema}}}),signal:AbortSignal.timeout(Math.max(1,deadline-Date.now()))});}catch{throw fail(503,'The career assessment could not connect. Retry this existing purchase; no second payment is needed.');}
   if(!response.ok)throw fail(503,response.status===401?'The AI connection needs to be reconnected by the site owner.':'Career matching is temporarily unavailable. Retry this existing purchase.');
   const payload=await response.json();if(payload.status==='incomplete')throw fail(503,'The career assessment did not finish. Retry this existing purchase.');
   try{data=JSON.parse((payload.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join(''));}catch{throw fail(503,'The career assessment could not be read. Retry this existing purchase.');}
- }else if(process.env.ANTHROPIC_API_KEY){const {anthropicRequest,DEFAULT_MODEL}=require('./anthropic');const r=await anthropicRequest({model:DEFAULT_MODEL,max_tokens:8000,system:prompt,messages:[{role:'user',content}],tools:[{name:'submit_career_matches',description:'Evidence-based civilian career ideas.',input_schema:schema}],tool_choice:{type:'tool',name:'submit_career_matches'}},{signal:AbortSignal.timeout(Math.max(1,deadline-Date.now()))});if(!r.ok||r.data?.stop_reason==='max_tokens')throw fail(503,'Career matching is temporarily unavailable. Retry this existing purchase.');data=r.data?.content?.find(x=>x.type==='tool_use')?.input;
+ }else if(process.env.ANTHROPIC_API_KEY){const {anthropicRequest,DEFAULT_MODEL}=require('./anthropic');const r=await anthropicRequest({model:DEFAULT_MODEL,max_tokens:8000,system:prompt,messages:[{role:'user',content}],tools:[{name:'submit_career_matches',description:'Evidence-based civilian career ideas.',input_schema:groundedSchema}],tool_choice:{type:'tool',name:'submit_career_matches'}},{signal:AbortSignal.timeout(Math.max(1,deadline-Date.now()))});if(!r.ok||r.data?.stop_reason==='max_tokens')throw fail(503,'Career matching is temporarily unavailable. Retry this existing purchase.');data=r.data?.content?.find(x=>x.type==='tool_use')?.input;
  }else throw fail(503,'The site owner needs to reconnect AI. Your existing purchase is unchanged.');
  if(!Array.isArray(data?.matches))throw fail(503,'The career assessment could not be read. Retry this existing purchase.');return data.matches;
 }
 
 async function generateMatches(value){
- const input=careerInput(value),deadline=Date.now()+110000;
- const first=await generatePass(input,instructions,deadline);
+ const input=careerInput(value),deadline=Date.now()+110000,passages=evidencePassages(input.resume+'\n'+input.additionalDetails);
+ if(!passages.length)return [];
+ const first=await generatePass(input,instructions,deadline,passages);
  let matches=normalizeMatches(first,input);
  // A bounded second look recovers omitted work areas or rejected quotes without
  // exceeding the same request deadline, adding a checkout, or weakening evidence.
  if((matches.length<12||new Set(matches.map(m=>occupations.get(m.code).category)).size<3)&&input.resume.length>900&&deadline-Date.now()>15000){
   try{
-   const prompt=instructions+` The first pass produced only ${matches.length} supported careers. Re-read every job and all skill sections, including older military and civilian roles. Find overlooked work fields and transferable duties. Use exact passages copied from the source. Existing suggested codes: ${matches.map(m=>m.code).join(', ')}. Add different supported options where possible; never invent evidence or pad the list.`;
-   const second=await generatePass(input,prompt,deadline);
+   const prompt=instructions+` The first pass produced only ${matches.length} supported careers. Re-read every job and all skill sections, including older military and civilian roles. Find overlooked work fields and transferable duties. Use exact passages copied from the source. Existing suggested codes: ${matches.map(m=>m.code).join(', ')}. Return only additional supported options, using codes outside the existing list. Look for overlooked fields, but never invent evidence or pad the list.`;
+   const second=await generatePass(input,prompt,deadline,passages,matches.map(m=>m.code));
    matches=normalizeMatches([...matches,...second],input);
   }catch(error){if(!matches.length)throw error;}
  }

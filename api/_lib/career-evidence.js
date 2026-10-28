@@ -29,3 +29,17 @@ function evidenceReader(source){
  };
 }
 module.exports={evidenceReader};
+
+// Constrain the model's evidence choices to passages from the original source.
+// This prevents a useful career from being discarded because its supporting
+// sentence was paraphrased. No words or numbers are generated for these choices.
+function evidencePassages(source){
+ const original=String(source||'');
+ const chunk=value=>{const parts=[];let rest=value.trim();while(rest.length>1000){const space=rest.lastIndexOf(' ',1000),cut=space>500?space:1000;parts.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}if(rest.length>=8)parts.push(rest);return parts;};
+ let passages=[...original.matchAll(/[^\r\n]+/g)].flatMap(match=>chunk(match[0]));
+ // Keep the response schema below the provider's enum limits without losing
+ // later sections of resumes containing hundreds of very short lines.
+ if(passages.length>512)passages=chunk(original);
+ return [...new Set(passages.filter(p=>p.length>=8))];
+}
+module.exports.evidencePassages=evidencePassages;
