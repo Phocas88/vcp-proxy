@@ -7,7 +7,7 @@ const slug='vcp-resume-fictional-example';
 test('a complete digital CV presents all published facts and professional section hierarchy',()=>{
  const html=renderDigitalCv(fixture,slug);
  for(const fact of [fixture.name,fixture.headline,fixture.summary,'Example Logistics Group','Inventory Specialist','Example Support Unit','Example State University','Business Administration','Inventory management','Workplace Safety Training'])assert.ok(html.includes(fact.replaceAll('&','&amp;')),fact);
- assert.match(html,/data-cv-layout="professional-20261025"/);assert.match(html,/<h1 class="cv-name">Alex Morgan<\/h1>/);assert.match(html,/Jan 2022 – Present/);assert.match(html,/Jun 2014 – Mar 2019/);assert.match(html,/aria-label="Jump to section"/);
+ assert.match(html,/data-cv-layout="desktop-20261027"/);assert.match(html,/<h1 class="cv-name">Alex Morgan<\/h1>/);assert.match(html,/Jan 2022 – Present/);assert.match(html,/Jun 2014 – Mar 2019/);assert.match(html,/aria-label="Jump to section"/);
  assert.doesNotMatch(html,/class="hero"|class="emblem"|Bebas Neue|fonts.googleapis|<script|\/app.html|🎖️|army.webp/);assert.match(html,/noindex,nofollow/);
 });
 test('civilian-only and minimal CVs never gain veteran claims, empty cards or unselected contact details',()=>{
@@ -23,11 +23,15 @@ test('profile text is escaped, unsafe links are rejected and only the allowliste
 function encode(value){if(value===null)return {nullValue:null};if(typeof value==='string')return {stringValue:value};if(typeof value==='boolean')return {booleanValue:value};if(Array.isArray(value))return {arrayValue:{values:value.map(encode)}};return {mapValue:{fields:Object.fromEntries(Object.entries(value).map(([key,v])=>[key,encode(v)]))}};}
 async function request(profile,status=200){const previous=global.fetch;global.fetch=async()=>({ok:status===200,status,json:async()=>({fields:encode(profile).mapValue.fields})});const headers={};const res={setHeader(key,value){headers[key]=value;},status(value){this.code=value;return this;},send(value){this.body=value;return this;}};try{await handler({query:{slug},headers:{host:'profiles.veterancareerpath.com'}},res);return {...res,headers};}finally{global.fetch=previous;}}
 test('the live route uses the new design for app CVs while preserving legacy website profiles and unpublished behavior',async()=>{
- const app=await request(fixture);assert.equal(app.code,200);assert.match(app.body,/data-cv-layout="professional-20261025"/);assert.match(app.headers['Cache-Control'],/s-maxage=60/);
+ const app=await request(fixture);assert.equal(app.code,200);assert.match(app.body,/data-cv-layout="desktop-20261027"/);assert.match(app.headers['Cache-Control'],/s-maxage=60/);
  const legacy=await request({...fixture,source:'legacy-website'});assert.equal(legacy.code,200);assert.match(legacy.body,/class="hero"/);assert.doesNotMatch(legacy.body,/data-cv-layout/);
  assert.equal((await request({...fixture,published:false})).code,404);assert.equal((await request({},404)).code,404);
 });
 
 test('optional profile photo and professional links are rendered safely without executable URLs',()=>{
  const {renderDigitalCv,safePhoto}=require('../api/_lib/digital-cv-page');const photo='data:image/jpeg;base64,/9j/4P/Z';assert.equal(safePhoto(photo),photo);const html=renderDigitalCv({name:'EXAMPLE PROFILE',photo,contact:{github:'https://github.com/example',portfolio:'https://example.com/work',website:'javascript:alert(1)'}},'example');assert.ok(html.includes('src="'+photo+'"'));assert.ok(html.includes('https://github.com/example'));assert.ok(html.includes('https://example.com/work'));assert.ok(!html.includes('javascript:'));assert.equal(safePhoto('data:image/svg+xml;base64,PHN2Zz4='),'');assert.equal(safePhoto('https://example.com/photo.jpg'),'');assert.equal(safePhoto('data:image/jpeg;base64,/9j/YmFk'),'');
+});
+
+test('mobile CVs retain the desktop viewport, columns and readable zoom controls',()=>{
+ const html=renderDigitalCv(fixture,slug);assert.match(html,/<meta name="viewport" content="width=1180">/);assert.match(html,/body\{min-width:1180px/);assert.match(html,/\.cv-body\{display:grid;grid-template-columns:/);assert.doesNotMatch(html,/@media\(max-width:(900|540)px\)|user-scalable=no|maximum-scale=1/);assert.match(html,/@media print\{[\s\S]*?body\{[^}]*min-width:0/);
 });
