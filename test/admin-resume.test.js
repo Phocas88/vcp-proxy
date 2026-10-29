@@ -63,3 +63,5 @@ test('non-page events preserve previously recorded source and screen totals',asy
  await handler({method:'POST',headers:{origin:'https://vcp-proxy.vercel.app','content-type':'application/json'},body:{protocol:'vcp-resume-analytics-v1',events:[{name:'vcp_resume_download',screen:'resume_download',source:'linkedin'}]}},res);
  assert.equal(res.code,204);assert.deepEqual(stored.sources,{linkedin:3});assert.deepEqual(stored.screens,{home:3});assert.equal(stored.events.page_view,3);assert.equal(stored.events.vcp_resume_download,1);
 });
+
+test('cover letter purchases and full-discount coupons appear without applicant text',()=>{for(const amount of [100,0]){const value=purchase(checkout({metadata:{product:'vcp-resume-cover-letter',uid:'PRIVATE_UID',letterId:'PRIVATE_ID',resume:'PRIVATE_RESUME'},amount_total:amount,payment_status:amount?'paid':'no_payment_required',total_details:{amount_discount:100-amount}}));assert.equal(value.service,'cover_letter');assert.equal(value.amount,amount);assert.equal(value.status,amount?'paid':'promo');assert.doesNotMatch(JSON.stringify(value),/PRIVATE_/);}});

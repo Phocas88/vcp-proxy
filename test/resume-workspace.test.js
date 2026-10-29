@@ -291,7 +291,7 @@ test('career tools require the owner and a completed settled purchase, cache one
  assert.equal((await s.run('career',{buildId:id,consent:true})).code,409);s.paid();await s.run('run',{buildId:id,consent:true});
  assert.equal((await s.run('career',{buildId:id,consent:true},{'x-vcp-firebase-token':'owner-b'})).code,404);
  assert.equal((await s.run('career',{buildId:id})).code,400);
- const result=await s.run('career',{buildId:id,consent:true,keepAlive:true});assert.equal(result.data.httpStatus,200);assert.ok(result.data.kit.coverLetter);
+ const result=await s.run('career',{buildId:id,consent:true,keepAlive:true});assert.equal(result.data.httpStatus,200);assert.equal(result.data.kit.coverLetter,'','included career tools cannot bypass the separate letter purchase');
  assert.deepEqual((await s.run('career',{buildId:id})).data.kit,result.data.kit);assert.equal(kits,1);assert.equal(s.checkouts(),1);
  [...s.sessions.values()][0].payment_intent={latest_charge:{refunded:true}};assert.equal((await s.run('career',{buildId:id,consent:true})).code,402);
  await s.run('delete',{buildId:id});assert.equal([...s.db.records.values()][0].careerKit,null);

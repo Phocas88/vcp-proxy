@@ -95,6 +95,7 @@ function createProgramHandler(deps={}) {
    const action=req.body.action||'run';
    const client=deps.stripe||require('./stripe');const key=deps.stripeKey||process.env.STRIPE_SECRET_KEY;
    const stripe={stripeGet:(path,key,signal)=>client.stripeGet(path,key,signal,STRIPE_API_VERSION),stripePost:(path,body,key,signal,idempotency)=>client.stripePost(path,body,key,signal,idempotency,STRIPE_API_VERSION)};
+   if(action.startsWith('letter-'))return require('./cover-letters').handleCoverLetters({req,res,db,uid,stripe,key,deps,now,base:origin+sitePath(origin),checkBuildPayment:checkPayment});
    if(action==='list'){
     const snap=await db.collection('_privateResumeProgramUsers').doc(uid).collection('builds').orderBy('createdAt','desc').limit(50).get();
     return res.status(200).json({builds:snap.docs.filter(d=>d.data().status!=='deleted').map(d=>publicBuild(d.id,d.data()))});
@@ -149,7 +150,7 @@ function createProgramHandler(deps={}) {
    if(action==='delete'){
     if(data.status==='running'&&data.leaseUntil>now())throw fail(409,'Wait for this build to finish before deleting its data.');
     if(data.status==='awaiting_payment'&&data.sessionId&&key){try{const session=await stripe.stripeGet('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId),key,AbortSignal.timeout(12000));if(session.status==='open')await stripe.stripePost('/v1/checkout/sessions/'+encodeURIComponent(data.sessionId)+'/expire',{},key,AbortSignal.timeout(12000));}catch{/* Data deletion still proceeds; Stripe remains the payment source of truth. */}}
-    await ref.update({templates:[],includedTemplate:null,input:null,entryContext:null,result:null,answers:null,clarificationDetails:null,careerKit:null,careerLease:null,careerLeaseUntil:0,careerAssessment:null,careerAssessmentLease:null,careerAssessmentLeaseUntil:0,lastError:null,status:'deleted',checkoutUrl:null,updatedAt:now()});await db.collection(require('./resume-feedback').COLLECTION).doc(require('./resume-feedback').feedbackId(uid,id)).delete();await require('./resume-templates').deleteTemplateData(ref);await require('./resume-delete').deleteBuildMirrors({db,uid,id,templates:data.templates||[]});return res.status(200).json({deleted:true});
+    await ref.update({templates:[],includedTemplate:null,input:null,entryContext:null,result:null,answers:null,clarificationDetails:null,careerKit:null,legacyCoverLetter:null,careerLease:null,careerLeaseUntil:0,careerAssessment:null,careerAssessmentLease:null,careerAssessmentLeaseUntil:0,lastError:null,status:'deleted',checkoutUrl:null,updatedAt:now()});await db.collection(require('./resume-feedback').COLLECTION).doc(require('./resume-feedback').feedbackId(uid,id)).delete();await require('./resume-templates').deleteTemplateData(ref);await require('./resume-delete').deleteBuildMirrors({db,uid,id,templates:data.templates||[]});return res.status(200).json({deleted:true});
    }
    if(data.status==='deleted')throw fail(410,'The resume data for this build was deleted. Contact support for purchase questions.');
    if(action==='verify'||action==='bind'){
