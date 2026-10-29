@@ -1,7 +1,8 @@
 'use strict';
 const {createHash}=require('node:crypto');
 const protocol=require('./resume-analytics-protocol.json');
-const MEASUREMENT_ID='G-CMFKLT321J'; // Existing VCP GA4 destination; public identifier.
+// Use the app's explicitly configured destination. Missing configuration stays off.
+const MEASUREMENT_ID=require('./resume-analytics-config.json').measurementId;
 const VERSION='vcp-resume-analytics-v1';
 const PARENTS=['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app','http://127.0.0.1:3000','http://localhost:3000'];
 
@@ -9,6 +10,7 @@ const PARENTS=['https://veterancareerpath.com','https://www.veterancareerpath.co
 // runs in the editor and cannot inspect its fields, links, files or query string.
 function collector(protocol,measurementId,version,parents){
  if(window.parent===window)return;
+ const available=typeof measurementId==='string'&&/^G-[A-Z0-9]{6,20}$/.test(measurementId);
  let ownerOrigin=null,configured=false,stopped=false,loaded=false,pending=[],currentScreen='home',identity=null;
  const safeScreen=value=>typeof value==='string'&&Object.prototype.hasOwnProperty.call(protocol.screens,value);
  const page=screen=>'https://veterancareerpath.com/resumereview/screen/'+screen;
@@ -29,13 +31,14 @@ function collector(protocol,measurementId,version,parents){
  }
  window.addEventListener('message',event=>{
   if(event.source!==parent||!parents.includes(event.origin)||event.data?.protocol!==version)return;
-  const value=event.data;if(value.type==='hello'){if(!stopped){ownerOrigin=event.origin;post('ready');}return;}if(value.type==='stop'){
+  const value=event.data;if(value.type==='hello'){if(!stopped){ownerOrigin=event.origin;post(available?'ready':'unconfigured');}return;}if(value.type==='stop'){
    stopped=true;pending=[];window['ga-disable-'+measurementId]=true;
    try{for(const cookie of document.cookie.split(';')){const name=cookie.trim().split('=')[0];if(/^vcp_resume_ga/.test(name))document.cookie=name+'=; Max-Age=0; path=/; SameSite=None; Secure';}}catch{}
    ownerOrigin=event.origin;post('stopped');return;
   }
   if(stopped)return;
   if(value.type==='configure'){
+   if(!available){ownerOrigin=event.origin;post('unconfigured');return;}
    if(configured||!/^\d{1,10}\.\d{10,13}$/.test(value.client_id||'')||!/^\d{9,13}$/.test(value.session_id||'')||!protocol.sources.includes(value.source)||!safeScreen(value.screen))return;
    ownerOrigin=event.origin;configured=true;currentScreen=value.screen;identity=value.client_id;
    window.dataLayer=[];window.gtag=function(){window.dataLayer.push(arguments);};
@@ -53,8 +56,8 @@ function collector(protocol,measurementId,version,parents){
  // Wait for the allowed parent's hello; no parent/referrer URL is read.
 }
 
-function renderAnalyticsBridge(){
- const script='('+collector.toString()+')('+JSON.stringify(protocol)+','+JSON.stringify(MEASUREMENT_ID)+','+JSON.stringify(VERSION)+','+JSON.stringify(PARENTS)+');';
+function renderAnalyticsBridge({measurementId=MEASUREMENT_ID}={}){
+ const script='('+collector.toString()+')('+JSON.stringify(protocol)+','+JSON.stringify(measurementId)+','+JSON.stringify(VERSION)+','+JSON.stringify(PARENTS)+');';
  const hash=createHash('sha256').update(script).digest('base64');
  const csp="default-src 'none'; script-src 'sha256-"+hash+"' https://www.googletagmanager.com; connect-src https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src https://*.google-analytics.com; base-uri 'none'; form-action 'none'; frame-ancestors "+PARENTS.join(' ')+"; sandbox allow-scripts allow-same-origin";
  return {html:'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>VCP Resume usage measurement</title></head><body><script>'+script+'</script></body></html>',csp};

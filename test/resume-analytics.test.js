@@ -1,17 +1,18 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const {createHash}=require('node:crypto');
-const {renderAnalyticsBridge,serveAnalyticsBridge,MEASUREMENT_ID,VERSION}=require('../api/_lib/resume-analytics');
+const {renderAnalyticsBridge,serveAnalyticsBridge,VERSION}=require('../api/_lib/resume-analytics');
+const MEASUREMENT_ID='G-TEST00000';
 function fixture(){
  const messages=[],scripts=[],listeners={};let parentReads=0;
  const parent={postMessage:(value,origin)=>messages.push({value,origin})};for(const key of ['document','location'])Object.defineProperty(parent,key,{get(){parentReads++;throw new Error('Private parent access');}});
  const window={parent,addEventListener:(name,fn)=>listeners[name]=fn};const document={head:{append:script=>scripts.push(script)},createElement:()=>({}),cookie:''};
- const {html}=renderAnalyticsBridge();vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{window,parent,document,Date,Number,Array,Object,JSON,String});
+ const {html}=renderAnalyticsBridge({measurementId:MEASUREMENT_ID});vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{window,parent,document,Date,Number,Array,Object,JSON,String});
  const send=(data,origin='https://veterancareerpath.com',source=parent)=>listeners.message({data:{protocol:VERSION,...data},origin,source});
  return {window,send,scripts,messages,parentReads:()=>parentReads};
 }
 const config={type:'configure',client_id:'123456789.1793200000000',session_id:'1793200000',source:'linkedin',screen:'home'};
 test('the public bridge has a hash-locked script, no editor access, no referrer and explicit embedding origins',()=>{
- const {html,csp}=renderAnalyticsBridge(),script=html.match(/<script>([\s\S]*)<\/script>/)[1];assert.ok(csp.includes("'sha256-"+createHash('sha256').update(script).digest('base64')+"'"));assert.match(csp,/frame-ancestors https:\/\/veterancareerpath.com/);assert.match(csp,/sandbox allow-scripts allow-same-origin/);assert.doesNotMatch(csp,/unsafe-inline|unsafe-eval|frame-ancestors \*/);assert.match(html,/name="referrer" content="no-referrer"/);assert.doesNotMatch(html,/<form|<input|<iframe|firebase/i);
+ const {html,csp}=renderAnalyticsBridge({measurementId:MEASUREMENT_ID}),script=html.match(/<script>([\s\S]*)<\/script>/)[1];assert.ok(csp.includes("'sha256-"+createHash('sha256').update(script).digest('base64')+"'"));assert.match(csp,/frame-ancestors https:\/\/veterancareerpath.com/);assert.match(csp,/sandbox allow-scripts allow-same-origin/);assert.doesNotMatch(csp,/unsafe-inline|unsafe-eval|frame-ancestors \*/);assert.match(html,/name="referrer" content="no-referrer"/);assert.doesNotMatch(html,/<form|<input|<iframe|firebase/i);
  const headers={};let status,sent;const res={setHeader:(k,v)=>headers[k]=v,status(value){status=value;return this;},send(value){sent=value;},end(){sent='';}};serveAnalyticsBridge({method:'GET',query:{private:'DO_NOT_ECHO'}},res);assert.equal(status,200);assert.equal(headers['Referrer-Policy'],'no-referrer');assert.equal(headers['Content-Type'],'text/html; charset=utf-8');assert.doesNotMatch(sent,/DO_NOT_ECHO/);serveAnalyticsBridge({method:'HEAD'},res);assert.equal(sent,'');
 });
 test('no Google code starts before a valid message from an allowed parent',()=>{
@@ -32,4 +33,8 @@ test('the existing API keeps POST authorization and only the exact public bridge
  await handler({method:'GET',query:{},headers:{}},res);assert.equal(status,405);
  await handler({method:'POST',query:{__analytics:'bridge'},body:{},headers:{}},res);assert.equal(status,401);
  await handler({method:'GET',query:{__analytics:'bridge'},headers:{}},res);assert.equal(status,200);assert.match(body,/VCP Resume usage measurement/);
+});
+
+test('a missing explicit destination never starts a Google tag or falls back to another property',()=>{
+ const messages=[],scripts=[],listeners={},parent={postMessage:value=>messages.push(value)};const window={parent,addEventListener:(name,fn)=>listeners[name]=fn};const document={head:{append:script=>scripts.push(script)},createElement:()=>({}),cookie:''};const {html}=renderAnalyticsBridge({measurementId:''});vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{window,parent,document,Date,Number,Array,Object,JSON,String});for(const data of [{type:'hello'},config])listeners.message({data:{protocol:VERSION,...data},source:parent,origin:'https://veterancareerpath.com'});assert.equal(scripts.length,0);assert.equal(window.gtag,undefined);assert.ok(messages.some(value=>value.type==='unconfigured'));assert.doesNotMatch(html,/G-CMFKLT321J/);
 });
