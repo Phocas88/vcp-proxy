@@ -32,7 +32,7 @@ function createActivityHandler({db,increment,rateLimit=limited,now=Date.now}={})
   try{
    const store=db||require('./firebase-admin').getDb(),add=increment||require('./firebase-admin').FieldValue.increment;
    const date=new Date(time).toISOString().slice(0,10),patch={date,updatedAt:time};
-   for(const group of ['events','screens','sources'])patch[group]=Object.fromEntries(Object.entries(totals[group]).map(([key,value])=>[key,add(value)]));
+   for(const group of ['events','screens','sources']){const values=Object.entries(totals[group]);if(values.length)patch[group]=Object.fromEntries(values.map(([key,value])=>[key,add(value)]));}
    await store.collection('_privateResumeActivityDaily').doc(date).set(patch,{merge:true});
    return res.status(204).end();
   }catch{return res.status(503).json({error:'activity_unavailable'});}
