@@ -51,6 +51,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/resume-analytics",
+      "destination": "/api/claude?__analytics=bridge"
+    },
+    {
       "source": "/veteran/:slug",
       "destination": "/api/veteran/:slug"
     },
