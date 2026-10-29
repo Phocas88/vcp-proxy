@@ -33,7 +33,7 @@ function collector(protocol,measurementId,version,parents){
   if(event.source!==parent||!parents.includes(event.origin)||event.data?.protocol!==version)return;
   const value=event.data;if(value.type==='hello'){if(!stopped){ownerOrigin=event.origin;post(available?'ready':'unconfigured');}return;}if(value.type==='stop'){
    stopped=true;pending=[];window['ga-disable-'+measurementId]=true;
-   try{for(const cookie of document.cookie.split(';')){const name=cookie.trim().split('=')[0];if(/^vcp_resume_ga/.test(name))document.cookie=name+'=; Max-Age=0; path=/; SameSite=None; Secure';}}catch{}
+   try{for(const cookie of document.cookie.split(';')){const name=cookie.trim().split('=')[0];if(/^vcp_resume_ga/.test(name))document.cookie=name+'=; Max-Age=0; path=/; SameSite=None; Secure; Partitioned';}}catch{}
    ownerOrigin=event.origin;post('stopped');return;
   }
   if(stopped)return;
@@ -46,7 +46,7 @@ function collector(protocol,measurementId,version,parents){
    window.gtag('set',{allow_google_signals:false,allow_ad_personalization_signals:false,ads_data_redaction:true,url_passthrough:false});
    window.gtag('js',new Date());
    const referrers={tiktok:'https://www.tiktok.com/',linkedin:'https://www.linkedin.com/',google:'https://www.google.com/',bing:'https://www.bing.com/',other:'',direct:''};
-   window.gtag('config',measurementId,{send_page_view:false,client_id:identity,session_id:value.session_id,cookie_prefix:'vcp_resume',cookie_domain:'none',cookie_expires:0,cookie_update:false,allow_google_signals:false,allow_ad_personalization_signals:false,page_location:page(currentScreen),page_title:'VCP Resume · '+protocol.screens[currentScreen],page_referrer:referrers[value.source],campaign_source:value.source,campaign_medium:['tiktok','linkedin'].includes(value.source)?'social':value.source==='direct'?'(none)':'referral',campaign_name:'vcp_resume',linker:{accept_incoming:false,domains:[]},...(ownerOrigin.startsWith('http://')?{debug_mode:true}:{})});
+   window.gtag('config',measurementId,{send_page_view:false,client_id:identity,session_id:value.session_id,cookie_prefix:'vcp_resume',cookie_domain:'none',cookie_expires:0,cookie_update:false,cookie_flags:'SameSite=None;Secure;Partitioned',allow_google_signals:false,allow_ad_personalization_signals:false,page_location:page(currentScreen),page_title:'VCP Resume · '+protocol.screens[currentScreen],page_referrer:referrers[value.source],campaign_source:value.source,campaign_medium:['tiktok','linkedin'].includes(value.source)?'social':value.source==='direct'?'(none)':'referral',campaign_name:'vcp_resume',linker:{accept_incoming:false,domains:[]},...(ownerOrigin.startsWith('http://')?{debug_mode:true}:{})});
    const script=document.createElement('script');script.async=true;script.referrerPolicy='no-referrer';script.src='https://www.googletagmanager.com/gtag/js?id='+measurementId;
    script.onload=()=>{if(stopped)return;loaded=true;const queue=pending;pending=[];queue.forEach(emit);post('collecting');};
    script.onerror=()=>{pending=[];post('blocked');};document.head.append(script);return;
