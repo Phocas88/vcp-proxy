@@ -15,7 +15,17 @@ test('only completed app checkouts appear, including full-discount promos and te
  assert.equal(purchase(checkout({payment_intent:{id:'pi_part1',latest_charge:{amount_refunded:50}}})).status,'partially_refunded');
 });
 test('administrator authorization precedes Stripe and activity database access',async()=>{
- for(const view of ['purchases','activity'])for(const code of [401,403]){let calls=0;const handler=createAdminResumeHandler({authorize:async()=>({ok:false,status:code,error:'not_allowed'}),get:async()=>calls++,key:()=>{calls++;return 'fixture';},db:{collection(){calls++;}}}),res=response();await handler(request({view}),res);assert.equal(res.code,code);assert.equal(calls,0);assert.equal(res.headers['Cache-Control'],'no-store');}
+ for(const view of ['purchases','activity','feedback'])for(const code of [401,403]){let calls=0;const handler=createAdminResumeHandler({authorize:async()=>({ok:false,status:code,error:'not_allowed'}),get:async()=>calls++,key:()=>{calls++;return 'fixture';},db:{collection(){calls++;}}}),res=response();await handler(request({view}),res);assert.equal(res.code,code);assert.equal(calls,0);assert.equal(res.headers['Cache-Control'],'no-store');}
+});
+test('feedback reports require admin, paginate within a date range and expose only rating, comment and date',async()=>{
+ const calls=[],rows=Array.from({length:51},(_,i)=>({id:i.toString(16).padStart(64,'0'),data:()=>({rating:4,comment:'Helpful <b>example</b>',createdAt:1793200000000,uid:'PRIVATE_UID',resume:'PRIVATE_RESUME'})}));
+ const query={orderBy(...a){calls.push(['order',...a]);return this;},where(...a){calls.push(['where',...a]);return this;},startAfter(v){calls.push(['after',v]);return this;},limit(n){assert.equal(n,51);return this;},select(...a){assert.deepEqual(a,['rating','comment','createdAt']);return this;},get:async()=>({docs:rows})};
+ const collection={...query,doc:id=>({get:async()=>({id,exists:true})})};
+ const handler=createAdminResumeHandler({authorize:authorized,key:()=>{throw new Error('Stripe is unnecessary');},db:{collection:name=>{assert.equal(name,'_privateResumeFeedback');return collection;}},now:()=>Date.UTC(2026,9,29)}),res=response();
+ await handler(request({view:'feedback',days:'7'}),res);assert.equal(res.code,200);assert.equal(res.body.feedback.length,50);assert.equal(res.body.nextCursor,rows[49].id);assert.doesNotMatch(JSON.stringify(res.body),/PRIVATE_/);assert.equal(calls.find(row=>row[0]==='where')[1],'createdAt');
+ const next=response();await handler(request({view:'feedback',days:'all',cursor:rows[49].id}),next);assert.equal(next.code,200);assert.ok(calls.find(row=>row[0]==='after'));
+ for(const cursor of ['cs_test_A1','../private','a&rating=5']){const bad=response();await handler(request({view:'feedback',cursor}),bad);assert.equal(bad.code,400);}
+ const failed=response();await createAdminResumeHandler({authorize:authorized,db:{collection(){throw new Error('PRIVATE_DATABASE_ERROR');}}})(request({view:'feedback'}),failed);assert.equal(failed.code,503);assert.doesNotMatch(JSON.stringify(failed.body),/PRIVATE/);
 });
 test('purchase report scans past unrelated Stripe pages and supports safe historical pagination',async()=>{
  const paths=[];const handler=createAdminResumeHandler({authorize:authorized,key:()=> 'fixture',now:()=>Date.UTC(2026,9,29),get:async(path,key,signal,version)=>{paths.push(path);assert.equal(version,'2024-06-20');return paths.length===1?{data:[checkout({id:'cs_test_unrelated1',metadata:{product:'other'}})],has_more:true}:{data:[checkout({id:'cs_test_promo2',amount_total:0,payment_intent:null,payment_status:'no_payment_required',total_details:{amount_discount:199}})],has_more:false};}}),res=response();
