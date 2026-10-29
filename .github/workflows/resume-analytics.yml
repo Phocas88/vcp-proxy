@@ -1,0 +1,28 @@
+name: Resume analytics privacy checks
+on:
+  pull_request:
+    paths: ['api/claude.js', 'api/_lib/resume-analytics*', 'test/resume-analytics*', 'scripts/verify-analytics-sdk.mjs', '.github/workflows/resume-analytics.yml', 'vercel.json']
+  push:
+    branches: [main]
+    paths: ['api/claude.js', 'api/_lib/resume-analytics*', 'test/resume-analytics*', 'scripts/verify-analytics-sdk.mjs', '.github/workflows/resume-analytics.yml', 'vercel.json']
+permissions:
+  contents: read
+jobs:
+  privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate the isolated collector and existing API
+        run: |
+          node --check api/claude.js
+          node --test test/resume-analytics.test.js
+      - name: Install the reviewed browser test version
+        run: npm install --no-save --ignore-scripts --package-lock=false playwright@1.64.1
+      - name: Install Chromium
+        run: npx playwright install chromium
+      - name: Verify the real SDK cannot see private parent fields
+        run: node scripts/verify-analytics-sdk.mjs

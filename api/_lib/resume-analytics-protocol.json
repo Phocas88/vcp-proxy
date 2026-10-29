@@ -1,0 +1,93 @@
+{
+  "events": {
+    "page_view": {},
+    "vcp_resume_start": {
+      "path": [
+        "upload",
+        "manual"
+      ]
+    },
+    "vcp_resume_checkout_requested": {
+      "service": [
+        "resume",
+        "template"
+      ]
+    },
+    "vcp_resume_checkout_verified": {
+      "service": [
+        "resume",
+        "template"
+      ]
+    },
+    "vcp_resume_import_complete": {
+      "file_type": [
+        "pdf",
+        "docx",
+        "txt",
+        "other"
+      ]
+    },
+    "vcp_resume_import_failed": {},
+    "vcp_resume_review_started": {
+      "kind": [
+        "new",
+        "recovery"
+      ]
+    },
+    "vcp_resume_review_complete": {
+      "kind": [
+        "new",
+        "recovery"
+      ]
+    },
+    "vcp_resume_review_failed": {
+      "reason": [
+        "timeout",
+        "canceled",
+        "provider",
+        "connection",
+        "other"
+      ]
+    },
+    "vcp_resume_download": {
+      "format": [
+        "pdf",
+        "docx",
+        "txt"
+      ],
+      "document": [
+        "resume"
+      ]
+    },
+    "vcp_resume_active": {}
+  },
+  "screens": {
+    "home": "Home",
+    "resumes": "My resumes",
+    "resume_start": "Choose how to start",
+    "resume_payment": "Resume checkout",
+    "resume_build": "Build a resume",
+    "resume_edit": "Upload or edit a resume",
+    "resume_job": "Job details",
+    "resume_checkout": "Confirm resume review",
+    "resume_review": "Resume review",
+    "resume_download": "Download resume",
+    "profile": "Career profile",
+    "applications": "Job tracker",
+    "library": "Service library",
+    "letter": "Cover letters",
+    "digital_cv": "Virtual CV",
+    "careers": "Career ideas",
+    "match": "Job match",
+    "skills": "Skill translation",
+    "settings": "Settings"
+  },
+  "sources": [
+    "direct",
+    "tiktok",
+    "linkedin",
+    "google",
+    "bing",
+    "other"
+  ]
+}
