@@ -11,6 +11,7 @@ test('only completed app checkouts appear, including full-discount promos and te
  assert.equal(purchase(checkout({metadata:{product:'unrelated-store'}})),null);assert.equal(purchase(checkout({metadata:{product:'constructor'}})),null);assert.equal(purchase(checkout({status:'open'})),null);assert.equal(purchase(checkout({payment_status:'unpaid'})),null);
  const promo=purchase(checkout({payment_status:'no_payment_required',amount_total:0,total_details:{amount_discount:199},payment_intent:null}));assert.equal(promo.status,'promo');assert.equal(promo.amount,0);assert.equal(promo.discount,199);
  const refunded=purchase(checkout({metadata:{product:'vcp-resume-template',design:'modern'},amount_total:100,payment_intent:{id:'pi_template1',latest_charge:{amount_refunded:100}}}));assert.equal(refunded.service,'template');assert.equal(refunded.status,'refunded');assert.equal(refunded.refunded,100);
+ const testOrder=purchase(checkout({livemode:false}));assert.equal(testOrder.testMode,true);assert.equal(testOrder.stripeUrl,'https://dashboard.stripe.com/test/payments/pi_fixture1');
  assert.equal(purchase(checkout({payment_intent:{id:'pi_part1',latest_charge:{amount_refunded:50}}})).status,'partially_refunded');
 });
 test('administrator authorization precedes Stripe and activity database access',async()=>{
