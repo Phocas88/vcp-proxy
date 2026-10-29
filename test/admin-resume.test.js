@@ -44,3 +44,12 @@ test('collector origin, body and rate limits stop writes; provider failures do n
  const failed=response();await createActivityHandler({db,rateLimit:()=>false})({method:'POST',headers:{origin:'https://vcp-proxy.vercel.app','content-type':'application/json'},body},failed);assert.equal(failed.code,503);assert.doesNotMatch(JSON.stringify(failed.body),/PRIVATE/);
  const report=response();await createAdminResumeHandler({authorize:authorized,key:()=> 'fixture',get:async()=>{throw new Error('PRIVATE_STRIPE_KEY');}})(request(),report);assert.equal(report.code,503);assert.doesNotMatch(JSON.stringify(report.body),/PRIVATE/);
 });
+
+test('non-page events preserve previously recorded source and screen totals',async()=>{
+ const stored={sources:{linkedin:3},screens:{home:3},events:{page_view:3}};
+ const merge=(target,patch)=>{for(const [key,value]of Object.entries(patch)){if(value&&typeof value==='object'&&Object.keys(value).length){if(Object.hasOwn(value,'increment'))target[key]=(target[key]||0)+value.increment;else{target[key]||={};merge(target[key],value);}}else target[key]=value;}};
+ const db={collection:()=>({doc:()=>({set:async patch=>merge(stored,patch)})})};
+ const handler=createActivityHandler({db,increment:value=>({increment:value}),rateLimit:()=>false,now:()=>Date.UTC(2026,9,29)}),res=response();
+ await handler({method:'POST',headers:{origin:'https://vcp-proxy.vercel.app','content-type':'application/json'},body:{protocol:'vcp-resume-analytics-v1',events:[{name:'vcp_resume_download',screen:'resume_download',source:'linkedin'}]}},res);
+ assert.equal(res.code,204);assert.deepEqual(stored.sources,{linkedin:3});assert.deepEqual(stored.screens,{home:3});assert.equal(stored.events.page_view,3);assert.equal(stored.events.vcp_resume_download,1);
+});
