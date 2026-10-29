@@ -1,7 +1,7 @@
 'use strict';
 const {stripeGet}=require('./stripe');
 const protocol=require('./resume-analytics-protocol.json');
-const PRODUCTS={'vcp-resume-workspace':'resume','vcp-resume-template':'template'};
+const PRODUCTS={'vcp-resume-workspace':'resume','vcp-resume-template':'template','vcp-resume-cover-letter':'cover_letter'};
 const ORIGINS=new Set(['https://veterancareerpath.com','https://www.veterancareerpath.com']);
 function purchase(session){
  if(!session||typeof session!=='object'||!/^cs_[A-Za-z0-9_]+$/.test(session.id||''))return null;
