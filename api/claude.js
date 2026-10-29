@@ -71,6 +71,7 @@ function validateBody(input) {
 
 module.exports = async function handler(req, res) {
   if (['GET','HEAD'].includes(req.method) && req.query?.__analytics === 'bridge') return require('./_lib/resume-analytics').serveAnalyticsBridge(req, res);
+  if (req.query?.__admin === 'subscribers') return require('./_lib/admin-subscribers').createSubscribersHandler()(req, res);
   setCors(req, res);
 
   if (req.method === 'OPTIONS') return res.status(204).end();

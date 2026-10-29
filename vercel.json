@@ -51,6 +51,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/admin-subscribers",
+      "destination": "/api/claude?__admin=subscribers"
+    },
+    {
       "source": "/api/resume-analytics",
       "destination": "/api/claude?__analytics=bridge"
     },
