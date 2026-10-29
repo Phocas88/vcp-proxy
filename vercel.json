@@ -51,6 +51,14 @@
   },
   "rewrites": [
     {
+      "source": "/api/admin-resume",
+      "destination": "/api/claude?__admin=resume"
+    },
+    {
+      "source": "/api/resume-activity",
+      "destination": "/api/claude?__analytics=activity"
+    },
+    {
       "source": "/api/admin-subscribers",
       "destination": "/api/claude?__admin=subscribers"
     },

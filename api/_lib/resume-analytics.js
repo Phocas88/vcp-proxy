@@ -11,7 +11,7 @@ const PARENTS=['https://veterancareerpath.com','https://www.veterancareerpath.co
 function collector(protocol,measurementId,version,parents){
  if(window.parent===window)return;
  const available=typeof measurementId==='string'&&/^G-[A-Z0-9]{6,20}$/.test(measurementId);
- let ownerOrigin=null,configured=false,stopped=false,loaded=false,pending=[],currentScreen='home',identity=null;
+ let ownerOrigin=null,configured=false,stopped=false,loaded=false,pending=[],currentScreen='home',identity=null,source='direct',activity=[],activityTimer=null;
  const safeScreen=value=>typeof value==='string'&&Object.prototype.hasOwnProperty.call(protocol.screens,value);
  const page=screen=>'https://veterancareerpath.com/resumereview/screen/'+screen;
  const post=type=>{if(ownerOrigin)parent.postMessage({protocol:version,type},ownerOrigin);};
@@ -19,6 +19,17 @@ function collector(protocol,measurementId,version,parents){
   if(typeof name!=='string'||!Object.prototype.hasOwnProperty.call(protocol.events,name)||!params||typeof params!=='object'||Array.isArray(params))return null;
   const out={};for(const [key,values]of Object.entries(protocol.events[name]))if(values.includes(params[key]))out[key]=params[key];return out;
  };
+ function recordActivity(value){
+  if(typeof window.fetch!=='function'||value.name==='vcp_resume_active'||!ownerOrigin?.startsWith('https://'))return;
+  if(activity.length<20)activity.push({name:value.name,screen:value.screen,source});
+  if(activityTimer!==null)return;
+  activityTimer=window.setTimeout(()=>{
+   activityTimer=null;if(stopped||!loaded){activity=[];return;}
+   const events=activity;activity=[];if(!events.length)return;
+   // Only fixed event/screen/source enums. Browser IDs and parent data stay out.
+   window.fetch('/api/resume-activity',{method:'POST',mode:'same-origin',credentials:'omit',referrerPolicy:'no-referrer',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({protocol:version,events})}).catch(()=>{});
+  },1200);
+ }
  function emit(value){
   if(stopped||!configured||!safeScreen(value.screen)||!/^\d{9,13}$/.test(value.session_id||''))return;
   const params=clean(value.name,value.params);if(!params)return;
@@ -27,12 +38,12 @@ function collector(protocol,measurementId,version,parents){
   const payload={...params,send_to:measurementId,app_name:'VCP Resume',app_area:'vcp_resume',page_location:page(currentScreen),page_title:'VCP Resume · '+protocol.screens[currentScreen],page_referrer:previous!==currentScreen?page(previous):'',session_id:value.session_id};
   if(Number.isFinite(value.engagement_time_msec)&&value.engagement_time_msec>=0&&value.engagement_time_msec<=3600000)payload.engagement_time_msec=Math.round(value.engagement_time_msec);
   if(ownerOrigin.startsWith('http://'))payload.debug_mode=true;
-  window.gtag('event',value.name,payload);
+  window.gtag('event',value.name,payload);recordActivity(value);
  }
  window.addEventListener('message',event=>{
   if(event.source!==parent||!parents.includes(event.origin)||event.data?.protocol!==version)return;
   const value=event.data;if(value.type==='hello'){if(!stopped){ownerOrigin=event.origin;post(available?'ready':'unconfigured');}return;}if(value.type==='stop'){
-   stopped=true;pending=[];window['ga-disable-'+measurementId]=true;
+   stopped=true;pending=[];activity=[];if(activityTimer!==null)window.clearTimeout(activityTimer);activityTimer=null;window['ga-disable-'+measurementId]=true;
    try{for(const cookie of document.cookie.split(';')){const name=cookie.trim().split('=')[0];if(/^vcp_resume_ga/.test(name))document.cookie=name+'=; Max-Age=0; path=/; SameSite=None; Secure; Partitioned';}}catch{}
    ownerOrigin=event.origin;post('stopped');return;
   }
@@ -40,7 +51,7 @@ function collector(protocol,measurementId,version,parents){
   if(value.type==='configure'){
    if(!available){ownerOrigin=event.origin;post('unconfigured');return;}
    if(configured||!/^\d{1,10}\.\d{10,13}$/.test(value.client_id||'')||!/^\d{9,13}$/.test(value.session_id||'')||!protocol.sources.includes(value.source)||!safeScreen(value.screen))return;
-   ownerOrigin=event.origin;configured=true;currentScreen=value.screen;identity=value.client_id;
+   ownerOrigin=event.origin;configured=true;currentScreen=value.screen;identity=value.client_id;source=value.source;
    window.dataLayer=[];window.gtag=function(){window.dataLayer.push(arguments);};
    window.gtag('consent','default',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
    window.gtag('set',{allow_google_signals:false,allow_ad_personalization_signals:false,ads_data_redaction:true,url_passthrough:false});
@@ -59,7 +70,7 @@ function collector(protocol,measurementId,version,parents){
 function renderAnalyticsBridge({measurementId=MEASUREMENT_ID}={}){
  const script='('+collector.toString()+')('+JSON.stringify(protocol)+','+JSON.stringify(measurementId)+','+JSON.stringify(VERSION)+','+JSON.stringify(PARENTS)+');';
  const hash=createHash('sha256').update(script).digest('base64');
- const csp="default-src 'none'; script-src 'sha256-"+hash+"' https://www.googletagmanager.com; connect-src https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src https://*.google-analytics.com; base-uri 'none'; form-action 'none'; frame-ancestors "+PARENTS.join(' ')+"; sandbox allow-scripts allow-same-origin";
+ const csp="default-src 'none'; script-src 'sha256-"+hash+"' https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src https://*.google-analytics.com; base-uri 'none'; form-action 'none'; frame-ancestors "+PARENTS.join(' ')+"; sandbox allow-scripts allow-same-origin";
  return {html:'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>VCP Resume usage measurement</title></head><body><script>'+script+'</script></body></html>',csp};
 }
 function serveAnalyticsBridge(req,res){
