@@ -1,10 +1,10 @@
 name: Resume analytics privacy checks
 on:
   pull_request:
-    paths: ['api/claude.js', 'api/_lib/resume-analytics*', 'test/resume-analytics*', 'scripts/verify-analytics-sdk.mjs', '.github/workflows/resume-analytics.yml', 'vercel.json']
+    paths: ['api/claude.js', 'api/_lib/resume-analytics*', 'api/_lib/resume-activity.js', 'test/resume-analytics*', 'scripts/verify-analytics-sdk.mjs', '.github/workflows/resume-analytics.yml', 'vercel.json']
   push:
     branches: [main]
-    paths: ['api/claude.js', 'api/_lib/resume-analytics*', 'test/resume-analytics*', 'scripts/verify-analytics-sdk.mjs', '.github/workflows/resume-analytics.yml', 'vercel.json']
+    paths: ['api/claude.js', 'api/_lib/resume-analytics*', 'api/_lib/resume-activity.js', 'test/resume-analytics*', 'scripts/verify-analytics-sdk.mjs', '.github/workflows/resume-analytics.yml', 'vercel.json']
 permissions:
   contents: read
 jobs:

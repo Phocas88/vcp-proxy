@@ -1,10 +1,10 @@
 name: Admin billing authorization checks
 on:
   pull_request:
-    paths: ['api/claude.js', 'api/_lib/admin-subscribers.js', 'api/_lib/admin-auth.js', 'test/admin-subscribers.test.js', '.github/workflows/admin-dashboard.yml', 'vercel.json']
+    paths: ['api/claude.js', 'api/_lib/admin-resume.js', 'api/_lib/resume-activity.js', 'test/admin-resume.test.js', 'api/_lib/admin-subscribers.js', 'api/_lib/admin-auth.js', 'test/admin-subscribers.test.js', '.github/workflows/admin-dashboard.yml', 'vercel.json']
   push:
     branches: [main]
-    paths: ['api/claude.js', 'api/_lib/admin-subscribers.js', 'api/_lib/admin-auth.js', 'test/admin-subscribers.test.js', '.github/workflows/admin-dashboard.yml', 'vercel.json']
+    paths: ['api/claude.js', 'api/_lib/admin-resume.js', 'api/_lib/resume-activity.js', 'test/admin-resume.test.js', 'api/_lib/admin-subscribers.js', 'api/_lib/admin-auth.js', 'test/admin-subscribers.test.js', '.github/workflows/admin-dashboard.yml', 'vercel.json']
 permissions:
   contents: read
 jobs:
@@ -19,4 +19,4 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
           node --check api/claude.js
           node --check api/_lib/admin-subscribers.js
-          node --test test/admin-subscribers.test.js test/review-admin-auth.test.js test/resume-analytics.test.js test/security.test.js
+          node --test test/admin-resume.test.js test/admin-subscribers.test.js test/review-admin-auth.test.js test/resume-analytics.test.js test/security.test.js

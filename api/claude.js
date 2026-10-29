@@ -70,7 +70,9 @@ function validateBody(input) {
 }
 
 module.exports = async function handler(req, res) {
+  if (req.query?.__analytics === 'activity') return require('./_lib/resume-activity').createActivityHandler()(req, res);
   if (['GET','HEAD'].includes(req.method) && req.query?.__analytics === 'bridge') return require('./_lib/resume-analytics').serveAnalyticsBridge(req, res);
+  if (req.query?.__admin === 'resume') return require('./_lib/admin-resume').createAdminResumeHandler()(req, res);
   if (req.query?.__admin === 'subscribers') return require('./_lib/admin-subscribers').createSubscribersHandler()(req, res);
   setCors(req, res);
 
