@@ -21,8 +21,19 @@ function createAdminResumeHandler({authorize=req=>require('./admin-auth').requir
   if(req.method==='OPTIONS')return res.status(204).end();if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
   const admin=await authorize(req);if(!admin.ok)return res.status(admin.status).json({error:admin.error});
   const view=req.query?.view||'purchases',days=String(req.query?.days||'30'),cursor=req.query?.cursor;
-  if(!['purchases','activity'].includes(view)||!['7','30','90','all'].includes(days)||cursor!==undefined&&(typeof cursor!=='string'||!/^cs_[A-Za-z0-9_]{1,180}$/.test(cursor)))return res.status(400).json({error:'invalid_report'});
+  const validCursor=cursor===undefined||typeof cursor==='string'&&(view==='purchases'?/^cs_[A-Za-z0-9_]{1,180}$/.test(cursor):view==='feedback'?/^[a-f0-9]{64}$/.test(cursor):false);
+  if(!['purchases','activity','feedback'].includes(view)||!['7','30','90','all'].includes(days)||!validCursor)return res.status(400).json({error:'invalid_report'});
   const end=now(),start=days==='all'?0:Date.UTC(new Date(end).getUTCFullYear(),new Date(end).getUTCMonth(),new Date(end).getUTCDate())-(Number(days)-1)*86400000;
+  if(view==='feedback'){
+   try{
+    const store=db||require('./firebase-admin').getDb(),collection=store.collection(require('./resume-feedback').COLLECTION);
+    let query=collection.orderBy('createdAt','desc');if(start)query=query.where('createdAt','>=',start);
+    if(cursor){const last=await collection.doc(cursor).get();if(!last.exists)return res.status(400).json({error:'invalid_report'});query=query.startAfter(last);}
+    const snap=await query.limit(51).select('rating','comment','createdAt').get(),page=snap.docs.slice(0,50);
+    const feedback=page.map(doc=>({id:doc.id,...doc.data()})).filter(row=>Number.isInteger(row.rating)&&row.rating>=1&&row.rating<=5&&Number.isSafeInteger(row.createdAt)).map(row=>({id:row.id,rating:row.rating,comment:typeof row.comment==='string'?row.comment.slice(0,1000):'',createdAt:row.createdAt}));
+    return res.status(200).json({feedback,nextCursor:snap.docs.length>50?page.at(-1).id:null,period:days,asOf:end});
+   }catch{return res.status(503).json({error:'feedback_unavailable'});}
+  }
   if(view==='activity'){
    try{
     const store=db||require('./firebase-admin').getDb(),since=new Date(days==='all'?end-89*86400000:start).toISOString().slice(0,10);

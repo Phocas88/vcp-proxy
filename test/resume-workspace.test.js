@@ -310,6 +310,27 @@ test('prepaid tailoring context survives checkout without sending resume content
 });
 
 const finishedDocument={resume:input.resume,design:'classic',applicationType:'private',role:'Coordinator',exportSettings:{}};
+test('finished manual or AI resumes can leave one private rating; prompts, retries and duplicate tabs do not duplicate it',async()=>{
+ for(const ai of [false,true]){
+  const s=setup(),id=await prepaid(s);s.paid();await s.run('verify',{buildId:id});
+  assert.equal((await s.run('feedback-prompt',{buildId:id})).code,409);
+  if(ai){await s.run('bind',{buildId:id,input,consent:true,storageConsent:true});await s.run('run',{buildId:id,consent:true});}
+  await s.run('template-finish',{buildId:id,document:finishedDocument,storageConsent:true});
+  const claims=await Promise.all([s.run('feedback-prompt',{buildId:id}),s.run('feedback-prompt',{buildId:id})]);assert.equal(claims.filter(r=>r.data.show).length,1);
+  const ratings=await Promise.all([s.run('feedback-submit',{buildId:id,rating:2,comment:'  Clearer instructions would help.  '}),s.run('feedback-submit',{buildId:id,rating:5,comment:'Duplicate tab'})]);assert.ok(ratings.every(r=>r.code===200&&r.data.submitted));
+  const values=[...s.db.records].filter(([path])=>path.startsWith('_privateResumeFeedback/'));assert.equal(values.length,1);assert.deepEqual(Object.keys(values[0][1]).sort(),['comment','createdAt','rating']);assert.equal(values[0][1].rating,2);assert.equal(values[0][1].comment,'Clearer instructions would help.');assert.doesNotMatch(JSON.stringify(values),/owner-a|firebase|MILITARY EXPERIENCE/);
+  assert.equal((await s.run('feedback-prompt',{buildId:id})).data.show,false);assert.equal(s.checkouts(),1);assert.equal(s.calls(),ai?1:0);
+  assert.equal((await s.run('delete',{buildId:id})).code,200);assert.ok(![...s.db.records.keys()].some(path=>path.startsWith('_privateResumeFeedback/')));
+ }
+});
+test('feedback rejects other accounts, invalid ratings, unsolicited fields and unfinished or deleted purchases',async()=>{
+ const s=setup(),id=await prepaid(s);s.paid();await s.run('verify',{buildId:id});await s.run('template-finish',{buildId:id,document:finishedDocument,storageConsent:true});
+ assert.equal((await s.run('feedback-submit',{buildId:id,rating:5,comment:''},{'x-vcp-firebase-token':'owner-b'})).code,404);
+ assert.equal((await s.run('feedback-submit',{buildId:id,rating:5,comment:''},{'x-vcp-firebase-token':''})).code,401);
+ for(const patch of [{rating:0},{rating:6},{rating:3.5},{rating:'5'},{comment:'x'.repeat(1001)},{comment:{}},{resume:input.resume},{email:'private@example.com'}])assert.equal((await s.run('feedback-submit',{buildId:id,rating:4,comment:'',...patch})).code,400);
+ assert.ok(![...s.db.records.keys()].some(path=>path.startsWith('_privateResumeFeedback/')));
+ await s.run('delete',{buildId:id});assert.equal((await s.run('feedback-submit',{buildId:id,rating:5,comment:''})).code,410);
+});
 test('a verified build claims one included template; extra templates require an exact server-verified $1 checkout',async()=>{
  const s=setup(),id=await prepaid(s);
  assert.equal((await s.run('template-finish',{buildId:id,document:finishedDocument,storageConsent:true})).code,402);
