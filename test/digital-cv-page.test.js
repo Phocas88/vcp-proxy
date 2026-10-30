@@ -71,3 +71,18 @@ test('credential words inside academic names are preserved and normalization sta
  const {cleanPublicCv}=require('../api/_lib/cv-content');const value={name:'Alex Example',education:[{institution:'Example University',degree:'Graduate Certificate: Digital Credentials Management',field:'Credentials Management',year:'2024',details:'Graduate coursework in credentials management.'}],skills:{}};
  const output=cleanPublicCv(value);assert.equal(output.education[0].degree,value.education[0].degree);assert.equal(output.education[0].field,value.education[0].field);assert.equal(output.education[0].details,value.education[0].details);assert.equal(output.skills.certs,'');assert.deepEqual(cleanPublicCv(output),output);
 });
+
+test('a system joined to an Operations heading stays alongside every other ERP and WMS system',()=>{
+ const {cvSkillGroups,cleanPublicCv}=require('../api/_lib/cv-content');
+ const systems=['NetSuite','Aptean Apprise WMS','Epicor Indago','SAP ERP / SAP MM / GCSS-Army','Oracle SCM','IFS ERP'];
+ for(const brand of ['RedPrairie','Red Prairie','Blue Yonder']){
+  const technical='Enterprise Platforms: '+systems.join(', ')+'\n'+brand+' Operations: Inventory control, warehouse leadership, supply chain planning';
+  const source={name:'Alex Example',skills:{technical}},copy=structuredClone(source),groups=cvSkillGroups(technical);
+  assert.deepEqual(groups,[{title:'Enterprise Platforms',items:[...systems,brand]},{title:'Operations',items:['Inventory control','warehouse leadership','supply chain planning']}]);
+  const cleaned=cleanPublicCv(source);assert.deepEqual(cleanPublicCv(cleaned),cleaned);assert.deepEqual(source,copy);
+  const html=renderDigitalCv(source,slug),section=html.match(/<section[^>]*aria-labelledby="skills"[^>]*>([\s\S]*?)<\/section>/)[1];
+  assert.match(section,/>Enterprise Platforms<\/h3>/);assert.match(section,/>Operations<\/h3>/);assert.ok(section.includes('<li>'+brand+'</li>'));assert.ok(!section.includes(brand+' Operations</h3>'));
+ }
+ assert.deepEqual(cvSkillGroups('Customer Service Operations: Scheduling, Telephone support'),[{title:'Customer Service Operations',items:['Scheduling','Telephone support']}]);
+ assert.deepEqual(cvSkillGroups('RedPrairie Operations: Inventory control'),[{title:'ERP & WMS systems',items:['RedPrairie']},{title:'Operations',items:['Inventory control']}]);
+});

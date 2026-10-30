@@ -31,9 +31,20 @@ function cvTrainingEntries(value){
 function cvSkillGroups(technical='',leadership=''){
  const groups=[],known='Software(?:\\s*(?:&|and)\\s*Development|\\s+Development)|(?:Data\\s*(?:&|and)\\s*)?(?:Analytics?|Analysis)(?:\\s*(?:&|and)\\s*Automation)?|Enterprise\\s+(?:Platforms?|Systems?)|Operations(?:\\s*(?:&|and)\\s*(?:Logistics|Supply\\s+Chain|Business))?|Technical(?:\\s*(?:&|and)\\s*Business)?\\s+Skills|Core\\s+Skills|Leadership(?:\\s+Skills)?|Tools\\s*(?:&|and)\\s*Technologies|Business\\s+Skills|Professional\\s+Skills|Additional\\s+Skills';
  const label=new RegExp('(?:\\b('+known+')|(?:^|[\\n;])\\s*([^:\\n;,]{2,70}))\\s*:\\s*','gi');
+ const systemsHeading=/^(?:Enterprise\s+(?:Platforms?|Systems?)|(?:ERP|WMS)(?:\s*(?:&|and|\/)\s*(?:ERP|WMS))?(?:\s+(?:Systems?|Platforms?))?)$/i;
+ const systemName=/^(?:Red\s*Prairie|Blue\s*Yonder|JDA|NetSuite|Apt(?:ean)?\s+Apprise(?:\s+WMS)?|Aptean(?:\s+Apprise)?(?:\s+WMS)?|Epicor(?:\s+Indago)?|Oracle(?:\s+(?:SCM|WMS|ERP|Cloud|EBS))?|SAP(?:\s+(?:ERP|WMS|MM|EWM))?|IFS(?:\s+ERP)?|GCSS[- ]Army|Microsoft\s+Dynamics(?:\s+365)?)$/i;
+ const knownSuffix=new RegExp('\\b('+known+')$','i');
  function add(title,body){const items=cvListItems(body);if(!items.length)return;const old=groups.find(group=>group.title.toLocaleLowerCase()===title.toLocaleLowerCase());if(old)old.items=cvUnique([...old.items,...items]);else groups.push({title,items});}
  for(const [source,fallback]of [[cvText(technical),'Core skills'],[cvText(leadership),'Leadership skills']]){
-  let cursor=0,title=fallback;for(const match of source.matchAll(label)){add(title,source.slice(cursor,match.index));title=(match[1]||match[2]).trim();cursor=match.index+match[0].length;}add(title,source.slice(cursor));
+  let cursor=0,title=fallback;for(const match of source.matchAll(label)){
+   add(title,source.slice(cursor,match.index));let next=(match[1]||match[2]).trim();
+   // A wrapped PDF line can join the last system to the next heading, as in
+   // "RedPrairie Operations:". Keep the named system with the other systems;
+   // do not label every operational skill as experience with that product.
+   const suffix=match[2]&&next.match(knownSuffix),prefix=suffix?next.slice(0,suffix.index).trim():'';
+   if(prefix&&systemName.test(prefix)){add(groups.find(group=>systemsHeading.test(group.title))?.title||'ERP & WMS systems',prefix);next=suffix[1];}
+   title=next;cursor=match.index+match[0].length;
+  }add(title,source.slice(cursor));
  }
  return groups;
 }
