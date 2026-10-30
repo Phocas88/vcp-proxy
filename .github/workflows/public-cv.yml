@@ -1,10 +1,16 @@
-name: Verify public digital CV
+name: Verify document quality and public CV
 on:
   pull_request:
     paths:
       - 'api/veteran/**'
       - 'api/_lib/digital-cv-page.js'
       - 'api/_lib/cv-content.js'
+      - 'api/_lib/skill-organization.js'
+      - 'api/_lib/cover-letter-ai.js'
+      - 'api/_lib/career-kit.js'
+      - 'api/_lib/resume-workspace/**'
+      - 'test/document-quality.test.js'
+      - 'test/fixtures/skill-backgrounds.json'
       - 'api/_lib/resume-text.js'
       - 'test/digital-cv-page.test.js'
       - 'scripts/verify-public-cv.cjs'
@@ -16,6 +22,12 @@ on:
       - 'api/veteran/**'
       - 'api/_lib/digital-cv-page.js'
       - 'api/_lib/cv-content.js'
+      - 'api/_lib/skill-organization.js'
+      - 'api/_lib/cover-letter-ai.js'
+      - 'api/_lib/career-kit.js'
+      - 'api/_lib/resume-workspace/**'
+      - 'test/document-quality.test.js'
+      - 'test/fixtures/skill-backgrounds.json'
       - 'api/_lib/resume-text.js'
       - 'test/digital-cv-page.test.js'
       - 'scripts/verify-public-cv.cjs'

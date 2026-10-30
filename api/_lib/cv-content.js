@@ -1,5 +1,6 @@
 'use strict';
 const {cleanResumeText,splitResumeSections,flowParagraphs,resumeHeading}=require('./resume-text');
+const {organizeSkillGroups,repairSkillWraps,skillCategory}=require('./skill-organization');
 // Presentation repairs use only the selected/public snapshot. Never fetch or
 // infer qualifications from a private profile, military code, or job posting.
 const cvText=value=>typeof value==='string'?value.trim():'';
@@ -34,7 +35,7 @@ function cvSkillGroups(technical='',leadership=''){
  const systemsHeading=/^(?:Enterprise\s+(?:Platforms?|Systems?)|(?:ERP|WMS)(?:\s*(?:&|and|\/)\s*(?:ERP|WMS))?(?:\s+(?:Systems?|Platforms?))?)$/i;
  const systemName=/^(?:Red\s*Prairie|Blue\s*Yonder|JDA|NetSuite|Apt(?:ean)?\s+Apprise(?:\s+WMS)?|Aptean(?:\s+Apprise)?(?:\s+WMS)?|Epicor(?:\s+Indago)?|Oracle(?:\s+(?:SCM|WMS|ERP|Cloud|EBS))?|SAP(?:\s+(?:ERP|WMS|MM|EWM))?|IFS(?:\s+ERP)?|GCSS[- ]Army|Microsoft\s+Dynamics(?:\s+365)?)$/i;
  const knownSuffix=new RegExp('\\b('+known+')$','i');
- function add(title,body){const items=cvListItems(body);if(!items.length)return;const old=groups.find(group=>group.title.toLocaleLowerCase()===title.toLocaleLowerCase());if(old)old.items=cvUnique([...old.items,...items]);else groups.push({title,items});}
+ function add(title,body){const items=cvListItems(repairSkillWraps(body));if(!items.length)return;const old=groups.find(group=>group.title.toLocaleLowerCase()===title.toLocaleLowerCase());if(old)old.items=cvUnique([...old.items,...items]);else groups.push({title,items});}
  for(const [source,fallback]of [[cvText(technical),'Core skills'],[cvText(leadership),'Leadership skills']]){
   let cursor=0,title=fallback;for(const match of source.matchAll(label)){
    add(title,source.slice(cursor,match.index));let next=(match[1]||match[2]).trim();
@@ -42,11 +43,11 @@ function cvSkillGroups(technical='',leadership=''){
    // "RedPrairie Operations:". Keep the named system with the other systems;
    // do not label every operational skill as experience with that product.
    const suffix=match[2]&&next.match(knownSuffix),prefix=suffix?next.slice(0,suffix.index).trim():'';
-   if(prefix&&systemName.test(prefix)){add(groups.find(group=>systemsHeading.test(group.title))?.title||'ERP & WMS systems',prefix);next=suffix[1];}
+   if(prefix&&(systemName.test(prefix)||skillCategory(prefix)==='ERP & WMS systems')){add(groups.find(group=>systemsHeading.test(group.title))?.title||'ERP & WMS systems',prefix);next=suffix[1];}
    title=next;cursor=match.index+match[0].length;
   }add(title,source.slice(cursor));
  }
- return groups;
+ return organizeSkillGroups(groups);
 }
 function recoverCvSections(value={}){
  const name=cvText(value.name),sections=splitResumeSections(value.summary||'',{initial:'summary',name});
