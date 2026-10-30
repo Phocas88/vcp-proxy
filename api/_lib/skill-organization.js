@@ -1,0 +1,38 @@
+'use strict';
+// Categories describe supplied skills. They do not establish proficiency,
+// licensing, clearance, or experience from a military code or job title.
+const skillCategories=[
+ ['ERP & WMS systems',/\b(?:ERP|WMS|MRP|SAP|GCSS[- ]Army|NetSuite|Red\s*Prairie|Blue\s*Yonder|JDA|Manhattan(?:\s+Associates)?|HighJump|K[oö]rber|Infor|Epicor|Aptean|PeopleSoft|JD\s+Edwards|Workday|Oracle\s+(?:SCM|ERP|WMS|EBS)|Microsoft\s+Dynamics)\b/i],
+ ['Software & development',/\b(?:JavaScript|TypeScript|Node\.js|Python|Java|C\+\+|C#|HTML|CSS|SQL|React|Angular|Vue|GitHub|GitLab|Cloudflare\s+Workers|API\s+integrations?|software\s+development|web\s+(?:applications?|development)|programming|relational\s+databases)(?=\W|$)/i],
+ ['Data & reporting',/\b(?:Tableau|Power\s*BI|Qlik|Excel|Google\s+Sheets|Apps?\s+Script|data\s+(?:analysis|analytics|visualization|modelling|modeling)|analytics|statistical\s+analysis|dashboards?|KPI|reporting|Pareto|ABCD\s+analysis|forecasting)\b/i],
+ ['IT & cybersecurity',/\b(?:Cisco|TCP\/?IP|LAN|WAN|VPN|Active\s+Directory|Entra|Linux|Windows\s+Server|Azure|AWS|Google\s+Cloud|cybersecurity|network\s+(?:administration|security|troubleshooting)|system\s+administration|help\s*desk|IT\s+support|vulnerability\s+(?:management|assessment)|SIEM|Splunk)\b/i],
+ ['Healthcare & patient support',/\b(?:patient\s+(?:care|support|assessment|triage)|triage|clinical\s+(?:support|documentation)|phlebotomy|vital\s+signs|medical\s+(?:records|documentation)|wound\s+care|dental\s+(?:assisting|support)|medication\s+administration|laboratory\s+testing)\b/i],
+ ['Maintenance & engineering',/\b(?:preventive\s+maintenance|equipment\s+(?:maintenance|repair)|aircraft\s+(?:maintenance|repair)|avionics|hydraulics|pneumatics|mechanical\s+(?:repair|troubleshooting)|electrical\s+(?:repair|troubleshooting)|technical\s+drawings|engineering\s+(?:design|support)|calibration)\b/i],
+ ['Quality & process improvement',/\b(?:quality\s+(?:assurance|control)|process\s+improvement|Lean\s+Six\s+Sigma)\b/i],
+ ['Logistics & transportation',/\b(?:inventory|warehouse|warehousing|supply\s+chain|logistics|shipping|receiving|dispatch|route\s+planning|motor\s+transport|material\s+handling|forklift|fleet\s+(?:operations|management)|cycle\s+counts?|stock\s+control)\b/i],
+ ['Emergency response & safety',/\b(?:emergency\s+(?:response|management)|incident\s+command|fire\s+(?:suppression|prevention)|search\s+and\s+rescue|first\s+aid|CPR|hazardous\s+materials|HAZMAT|occupational\s+safety|safety\s+inspections?|physical\s+security|physical\s+access\s+control|force\s+protection)\b/i],
+ ['Construction & skilled trades',/\b(?:carpentry|plumbing|welding|masonry|construction|HVAC|concrete|blueprint\s+reading|heavy\s+equipment|electrical\s+installation)\b/i],
+ ['Finance & procurement',/\b(?:bookkeeping|accounting|payroll|budget\s+(?:management|planning|tracking)|purchasing|procurement|purchase\s+orders?|contract\s+administration|financial\s+(?:analysis|reporting)|cost\s+(?:control|analysis))\b/i],
+ ['Leadership & training',/\b(?:team\s+leadership|staff\s+(?:supervision|training)|team\s+supervision|mentoring|coaching|personnel\s+management|instructor|instructional\s+design|training\s+(?:delivery|development)|performance\s+management|conflict\s+resolution)\b/i],
+ ['Operations & administration',/\b(?:scheduling|records\s+management|document\s+control|project\s+(?:coordination|management)|process\s+improvement|vendor\s+management|standard\s+operating\s+procedures|SOPs|Lean\s+Six\s+Sigma|office\s+administration|operations\s+(?:coordination|management)|human\s+resources|recruiting|event\s+planning)\b/i],
+ ['Customer service & hospitality',/\b(?:customer\s+(?:service|support)|client\s+relations|food\s+(?:preparation|service|safety)|culinary|catering|hospitality|retail\s+(?:sales|operations)|sales\s+support|guest\s+services)\b/i],
+ ['Communication & collaboration',/\b(?:public\s+speaking|technical\s+writing|radio\s+communications?|stakeholder\s+communication|briefings?|presentation\s+skills|translation|interpretation|collaboration|teamwork|problem\s+solving|customer\s+communication)\b/i]
+];
+const skillKey=value=>String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLocaleLowerCase();
+function skillCategory(value){const text=String(value||'');if(/\b(?:no|not|never|without)\b.{0,45}\b(?:experience|trained|certified|licensed)\b|\b(?:learning|pursuing|studying|in progress|pending)\b/i.test(text))return 'Additional skills';return skillCategories.find(([,pattern])=>pattern.test(text))?.[0]||'Additional skills';}
+function repairSkillWraps(value){
+ let text=String(value||'');
+ for(const [first,last]of [['vendor','management'],['process','improvement'],['inventory','control'],['supply chain','planning'],['standard operating','procedures']])text=text.replace(new RegExp('\\b('+first.replaceAll(' ','\\s+')+')[ \\t]*\\r?\\n[ \\t]*('+last+')\\b','gi'),'$1 $2');
+ return text;
+}
+function organizeSkillGroups(groups){
+ const generic=/^(?:core(?:\s+skills)?|skills|technical(?:\s+(?:skills|proficiencies))?|professional\s+skills|additional\s+skills|other(?:\s+skills)?)$/i,entries=new Map();
+ for(const group of groups){const explicit=!generic.test(group.title);for(const item of group.items){const key=skillKey(item);if(!key)continue;const old=entries.get(key);if(!old||explicit&&!old.explicit)entries.set(key,{title:explicit?group.title:skillCategory(item),item,explicit});}}
+ const result=[];
+ for(const {title,item}of entries.values()){let group=result.find(g=>skillKey(g.title)===skillKey(title));if(!group){group={title,items:[]};result.push(group);}group.items.push(item);}
+ return result;
+}
+const skillWritingGuidance=`Skills and evidence standard shared by resumes, cover letters and the Virtual CV: inventory the applicant's complete military AND civilian background before choosing content. Include additional duties, collateral assignments, tools, verified qualifications, projects and training when actually supplied. Do not let the most recent role, a target job, one vendor, branch or military code erase a different field of experience. A job posting guides relevance and never supplies applicant facts.
+Organize actual skills by function using appropriate categories such as ${skillCategories.map(([title])=>title).join('; ')}. Use only categories with supplied evidence; these are options, not a list of qualifications to add. Preserve each distinctly named system, including separate ERP/WMS products and modules. A vendor or employer name must not become a heading that implies all duties were performed in that product. Keep education, licenses/certifications, training and language proficiency separate from skill categories, preserving unfinished, pending, expired and self-assessed status. Unknown tools or ambiguous skills belong under a neutral Additional skills heading or in a specific clarification question. Never guess a license, proficiency, rank equivalency, clearance, leadership authority or civilian qualification.
+Before returning the document, check that its factual claims come from the applicant's submitted background or verified answers; preserve employers, job dates, every supplied number and credential status. Reconcile every distinct named tool and important skill against the source. Explain unclear acronyms only when the meaning is supported. Ask a targeted question in the available findings/checks when a missing fact materially changes the document. Avoid generic praise, inflated claims, invented results and keyword stuffing. Keep the applicant's voice and write for a human reader.`;
+module.exports={skillCategories,skillCategory,organizeSkillGroups,repairSkillWraps,skillWritingGuidance};

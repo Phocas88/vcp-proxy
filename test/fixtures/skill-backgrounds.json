@@ -1,0 +1,14 @@
+[
+ {"background":"Army logistics and later software work","skills":["GCSS-Army","RedPrairie","Oracle SCM","inventory control","JavaScript","SQL","Tableau"],"categories":["ERP & WMS systems","Logistics & transportation","Software & development","Data & reporting"]},
+ {"background":"Navy hospital support","skills":["patient triage","vital signs","medical records","staff training"],"categories":["Healthcare & patient support","Leadership & training"]},
+ {"background":"Air Force aircraft maintenance","skills":["aircraft maintenance","hydraulics","calibration","quality assurance"],"categories":["Maintenance & engineering","Quality & process improvement"]},
+ {"background":"Marine Corps communications and civilian IT","skills":["radio communications","Cisco","TCP/IP","Active Directory","Linux"],"categories":["Communication & collaboration","IT & cybersecurity"]},
+ {"background":"Coast Guard rescue and safety","skills":["search and rescue","incident command","first aid","safety inspections"],"categories":["Emergency response & safety"]},
+ {"background":"Space Force and civilian cyber operations","skills":["network security","vulnerability assessment","Splunk","Python","Power BI"],"categories":["IT & cybersecurity","Software & development","Data & reporting"]},
+ {"background":"Guard engineer and construction work","skills":["carpentry","blueprint reading","welding","heavy equipment","preventive maintenance"],"categories":["Construction & skilled trades","Maintenance & engineering"]},
+ {"background":"Reserve administration and finance","skills":["payroll","budget planning","procurement","scheduling","records management"],"categories":["Finance & procurement","Operations & administration"]},
+ {"background":"Veteran culinary and hospitality work","skills":["food preparation","catering","customer service","team leadership"],"categories":["Customer service & hospitality","Leadership & training"]},
+ {"background":"Motor transport and warehouse work","skills":["route planning","dispatch","forklift","fleet management","shipping"],"categories":["Logistics & transportation"]},
+ {"background":"Cross-field developer and program coordinator","skills":["C++","C#","Node.js","project coordination","stakeholder communication"],"categories":["Software & development","Operations & administration","Communication & collaboration"]},
+ {"background":"Unfamiliar systems and codes remain supplied facts","skills":["Example field instrument","88M02","LS","1C6","68W"],"categories":["Additional skills"]}
+]
