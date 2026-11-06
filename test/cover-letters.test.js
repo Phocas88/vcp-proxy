@@ -30,7 +30,7 @@ test('previously generated letters stay accessible only to their original owner 
 test('new-domain cover letter checkout returns to that app and old paid letters stay recoverable',async()=>{
  for(const origin of ['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']){
   const s=setup(),requestId=crypto.randomUUID(),p=await s.run('letter-prepare',{requestId,input,consent:true,storageConsent:true},{origin});assert.equal(p.code,200,JSON.stringify(p.data));
-  for(const url of [s.bodies[0].success_url,s.bodies[0].cancel_url]){assert.equal(new URL(url).origin,origin);assert.equal(new URL(url).pathname,'/');assert.equal(new URL(url).hash,'#letter');}
+  for(const url of [s.bodies[0].success_url,s.bodies[0].cancel_url]){assert.equal(new URL(url).origin,origin);assert.equal(new URL(url).pathname,'/app/');assert.equal(new URL(url).hash,'#letter');}
   const old=setup(),purchase=await old.prepare();old.paid(0);const recovered=await old.run('letter-get',{letterId:purchase.id},{origin});assert.equal(recovered.code,200);assert.equal(recovered.data.status,'paid');assert.equal(old.bodies.length,1);
  }
 });

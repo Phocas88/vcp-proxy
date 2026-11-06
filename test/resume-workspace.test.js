@@ -363,15 +363,15 @@ test('refunded, mismatched and zero-total unpaid template sessions do not grant 
 });
 
 
-test('the new website uses root checkout returns and recovers existing purchases without a second payment',async()=>{
+test('the new website uses workspace checkout returns and recovers existing purchases without a second payment',async()=>{
  for(const origin of ['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']){
   const s=setup(),purchase=await s.run('purchase',prepaidRequest,{origin});assert.equal(purchase.code,200,JSON.stringify(purchase.data));
   const id=purchase.data.id,body=s.checkoutBodies[0];
-  for(const url of [body.success_url,body.cancel_url]){assert.equal(new URL(url).origin,origin);assert.equal(new URL(url).pathname,'/');}
+  for(const url of [body.success_url,body.cancel_url]){assert.equal(new URL(url).origin,origin);assert.equal(new URL(url).pathname,'/app/');}
   s.paid();assert.equal((await s.run('verify',{buildId:id},{origin})).code,200);
   assert.equal((await s.run('template-finish',{buildId:id,document:finishedDocument,storageConsent:true},{origin})).code,200);
   assert.equal((await s.run('template-finish',{buildId:id,document:{...finishedDocument,design:'modern'},storageConsent:true},{origin})).code,200);
-  for(const url of [s.checkoutBodies[1].success_url,s.checkoutBodies[1].cancel_url]){assert.equal(new URL(url).origin,origin);assert.equal(new URL(url).pathname,'/');}
+  for(const url of [s.checkoutBodies[1].success_url,s.checkoutBodies[1].cancel_url]){assert.equal(new URL(url).origin,origin);assert.equal(new URL(url).pathname,'/app/');}
   const existing=setup(),oldId=await existing.prepare();existing.paid();
   assert.equal((await existing.run('verify',{buildId:oldId},{origin})).code,200);assert.equal(existing.checkouts(),1);
  }
