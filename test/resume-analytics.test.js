@@ -38,3 +38,13 @@ test('the existing API keeps POST authorization and only the exact public bridge
 test('a missing explicit destination never starts a Google tag or falls back to another property',()=>{
  const messages=[],scripts=[],listeners={},parent={postMessage:value=>messages.push(value)};const window={parent,addEventListener:(name,fn)=>listeners[name]=fn};const document={head:{append:script=>scripts.push(script)},createElement:()=>({}),cookie:''};const {html}=renderAnalyticsBridge({measurementId:''});vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{window,parent,document,Date,Number,Array,Object,JSON,String});for(const data of [{type:'hello'},config])listeners.message({data:{protocol:VERSION,...data},source:parent,origin:'https://veterancareerpath.com'});assert.equal(scripts.length,0);assert.equal(window.gtag,undefined);assert.ok(messages.some(value=>value.type==='unconfigured'));assert.doesNotMatch(html,/G-CMFKLT321J/);
 });
+
+
+test('new website telemetry keeps consent and sanitizes locations to the owned app domain',()=>{
+ for(const origin of ['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']){
+  const f=fixture();assert.equal(f.scripts.length,0);f.send(config,origin);assert.equal(f.scripts.length,1);
+  const settings=f.window.dataLayer.map(v=>Array.from(v)).find(v=>v[0]==='config')[2];assert.equal(settings.page_location,'https://veteranresumes.com/screen/home');assert.equal(settings.allow_google_signals,false);
+  f.send({type:'stop'},origin);assert.equal(f.window['ga-disable-'+MEASUREMENT_ID],true);
+ }
+ const f=fixture();for(const origin of ['https://veteranresumes.com.evil.example','https://evil.veteranresumes.com'])f.send(config,origin);assert.equal(f.scripts.length,0);
+});

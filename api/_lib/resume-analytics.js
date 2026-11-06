@@ -4,7 +4,7 @@ const protocol=require('./resume-analytics-protocol.json');
 // Use the app's explicitly configured destination. Missing configuration stays off.
 const MEASUREMENT_ID=require('./resume-analytics-config.json').measurementId;
 const VERSION='vcp-resume-analytics-v1';
-const PARENTS=['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app','http://127.0.0.1:3000','http://localhost:3000'];
+const PARENTS=['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app','https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app','http://127.0.0.1:3000','http://localhost:3000'];
 
 // This function runs in a separate-origin, sandboxed document. Google code never
 // runs in the editor and cannot inspect its fields, links, files or query string.
@@ -13,7 +13,7 @@ function collector(protocol,measurementId,version,parents){
  const available=typeof measurementId==='string'&&/^G-[A-Z0-9]{6,20}$/.test(measurementId);
  let ownerOrigin=null,configured=false,stopped=false,loaded=false,pending=[],currentScreen='home',identity=null,source='direct',activity=[],activityTimer=null;
  const safeScreen=value=>typeof value==='string'&&Object.prototype.hasOwnProperty.call(protocol.screens,value);
- const page=screen=>'https://veterancareerpath.com/resumereview/screen/'+screen;
+ const page=screen=>(['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app'].includes(ownerOrigin)?'https://veteranresumes.com/':'https://veterancareerpath.com/resumereview/')+'screen/'+screen;
  const post=type=>{if(ownerOrigin)parent.postMessage({protocol:version,type},ownerOrigin);};
  const clean=(name,params)=>{
   if(typeof name!=='string'||!Object.prototype.hasOwnProperty.call(protocol.events,name)||!params||typeof params!=='object'||Array.isArray(params))return null;

@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const protocol=require('./resume-analytics-protocol.json');
-const ORIGINS=new Set(['https://vcp-proxy.vercel.app','https://veterancareerpath.com','https://www.veterancareerpath.com']);
+const ORIGINS=new Set(['https://vcp-proxy.vercel.app','https://veterancareerpath.com','https://www.veterancareerpath.com','https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']);
 const limits=new Map(),salt=crypto.randomBytes(16).toString('hex');
 function limited(req,now){
  const ip=String(req.headers?.['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0].slice(0,100);
