@@ -32,7 +32,7 @@ test('the existing API keeps POST authorization and only the exact public bridge
  const handler=require('../api/claude');let status,body;const res={setHeader(){},status(value){status=value;return this;},json(value){body=value;},send(value){body=value;},end(){body='';}};
  await handler({method:'GET',query:{},headers:{}},res);assert.equal(status,405);
  await handler({method:'POST',query:{__analytics:'bridge'},body:{},headers:{}},res);assert.equal(status,401);
- await handler({method:'GET',query:{__analytics:'bridge'},headers:{}},res);assert.equal(status,200);assert.match(body,/VCP Resume usage measurement/);
+ await handler({method:'GET',query:{__analytics:'bridge'},headers:{}},res);assert.equal(status,200);assert.match(body,/Veteran Resumes usage measurement/);
 });
 
 test('a missing explicit destination never starts a Google tag or falls back to another property',()=>{

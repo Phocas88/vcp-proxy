@@ -8,7 +8,7 @@ const STRIPE_API_VERSION = '2024-06-20';
 const PRODUCT = 'vcp-resume-workspace';
 const RESUME_ORIGINS = new Set(['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']);
 const ORIGINS = new Set(['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app',...RESUME_ORIGINS]);
-const sitePath = origin => RESUME_ORIGINS.has(origin) ? '/' : origin==='https://mobile-resume-review-app.vercel.app' ? '/index.html' : '/resumereview/';
+const sitePath = origin => RESUME_ORIGINS.has(origin) ? '/app/' : origin==='https://mobile-resume-review-app.vercel.app' ? '/index.html' : '/resumereview/';
 const fail = (status,message,publicCode) => Object.assign(new Error(message),{status,public:true,publicCode});
 const DIAGNOSTIC_CODES=new Set(['AI_AUTHENTICATION','AI_ACCESS','AI_BILLING_LIMIT','AI_RATE_LIMIT','AI_QUOTA_OR_RATE_LIMIT','AI_PROVIDER_UNAVAILABLE','AI_REQUEST_REJECTED','AI_TIMEOUT','AI_INVALID_RESPONSE','AI_OUTPUT_TRUNCATED','AI_REWRITE_WITHHELD']);
 const DIAGNOSTIC_MESSAGES={
@@ -130,7 +130,7 @@ function createProgramHandler(deps={}) {
     if(expired||now()-data.createdAt>23*60*60*1000){data=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status!=='awaiting_payment')throw fail(409,'Build state changed. Open purchase history.');if(d.sessionId===data.sessionId&&d.attempt===data.attempt){const next={...d,attempt:d.attempt+1,sessionId:null,checkoutUrl:null,createdAt:now()};tx.set(ref,next);return next;}return d;});}
     if(deps.checkoutQuota&&!await deps.checkoutQuota(uid))throw fail(429,'Several checkouts have been requested. Wait 15 minutes before opening another; existing paid builds remain available.');
     const base=data.origin+sitePath(data.origin);
-    const body={mode:'payment',allow_promotion_codes:true,client_reference_id:id,metadata:{product:PRODUCT,uid,buildId:id},payment_intent_data:{metadata:{product:PRODUCT,uid,buildId:id}},payment_method_types:['card'],line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:PRICE,product_data:{name:'Veteran Career Path — one AI resume build',description:'One AI build and one chosen template. Additional templates $1 each. No subscription.'}}}],success_url:base+'?build='+id+'&checkout=success',cancel_url:base+'?build='+id+'&checkout=canceled'};
+    const body={mode:'payment',allow_promotion_codes:true,client_reference_id:id,metadata:{product:PRODUCT,uid,buildId:id},payment_intent_data:{metadata:{product:PRODUCT,uid,buildId:id}},payment_method_types:['card'],line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:PRICE,product_data:{name:'Veteran Resumes — resume',description:'One AI build and one chosen template. Additional templates $1 each. No subscription.'}}}],success_url:base+'?build='+id+'&checkout=success',cancel_url:base+'?build='+id+'&checkout=canceled'};
     const session=await stripe.stripePost('/v1/checkout/sessions',body,key,AbortSignal.timeout(12000),'resume-program-promo-v1-'+id+'-'+data.attempt);
     if(!session.id||!/^https:\/\/checkout\.stripe\.com\//.test(session.url||''))throw fail(502,'Stripe checkout could not open. You have not been charged by this request.');
     await ref.update({sessionId:session.id,checkoutUrl:session.url,updatedAt:now()});

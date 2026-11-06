@@ -35,7 +35,7 @@ function collector(protocol,measurementId,version,parents){
   const params=clean(value.name,value.params);if(!params)return;
   if(!loaded){if(pending.length<40)pending.push(value);return;}
   const previous=currentScreen;currentScreen=value.screen;
-  const payload={...params,send_to:measurementId,app_name:'VCP Resume',app_area:'vcp_resume',page_location:page(currentScreen),page_title:'VCP Resume · '+protocol.screens[currentScreen],page_referrer:previous!==currentScreen?page(previous):'',session_id:value.session_id};
+  const payload={...params,send_to:measurementId,app_name:'Veteran Resumes',app_area:'vcp_resume',page_location:page(currentScreen),page_title:'Veteran Resumes · '+protocol.screens[currentScreen],page_referrer:previous!==currentScreen?page(previous):'',session_id:value.session_id};
   if(Number.isFinite(value.engagement_time_msec)&&value.engagement_time_msec>=0&&value.engagement_time_msec<=3600000)payload.engagement_time_msec=Math.round(value.engagement_time_msec);
   if(ownerOrigin.startsWith('http://'))payload.debug_mode=true;
   window.gtag('event',value.name,payload);recordActivity(value);
@@ -57,7 +57,7 @@ function collector(protocol,measurementId,version,parents){
    window.gtag('set',{allow_google_signals:false,allow_ad_personalization_signals:false,ads_data_redaction:true,url_passthrough:false});
    window.gtag('js',new Date());
    const referrers={tiktok:'https://www.tiktok.com/',linkedin:'https://www.linkedin.com/',google:'https://www.google.com/',bing:'https://www.bing.com/',other:'',direct:''};
-   window.gtag('config',measurementId,{send_page_view:false,client_id:identity,session_id:value.session_id,cookie_prefix:'vcp_resume',cookie_domain:'none',cookie_expires:0,cookie_update:false,cookie_flags:'SameSite=None;Secure;Partitioned',allow_google_signals:false,allow_ad_personalization_signals:false,page_location:page(currentScreen),page_title:'VCP Resume · '+protocol.screens[currentScreen],page_referrer:referrers[value.source],campaign_source:value.source,campaign_medium:['tiktok','linkedin'].includes(value.source)?'social':value.source==='direct'?'(none)':'referral',campaign_name:'vcp_resume',linker:{accept_incoming:false,domains:[]},...(ownerOrigin.startsWith('http://')?{debug_mode:true}:{})});
+   window.gtag('config',measurementId,{send_page_view:false,client_id:identity,session_id:value.session_id,cookie_prefix:'vcp_resume',cookie_domain:'none',cookie_expires:0,cookie_update:false,cookie_flags:'SameSite=None;Secure;Partitioned',allow_google_signals:false,allow_ad_personalization_signals:false,page_location:page(currentScreen),page_title:'Veteran Resumes · '+protocol.screens[currentScreen],page_referrer:referrers[value.source],campaign_source:value.source,campaign_medium:['tiktok','linkedin'].includes(value.source)?'social':value.source==='direct'?'(none)':'referral',campaign_name:'vcp_resume',linker:{accept_incoming:false,domains:[]},...(ownerOrigin.startsWith('http://')?{debug_mode:true}:{})});
    const script=document.createElement('script');script.async=true;script.referrerPolicy='no-referrer';script.src='https://www.googletagmanager.com/gtag/js?id='+measurementId;
    script.onload=()=>{if(stopped)return;loaded=true;const queue=pending;pending=[];queue.forEach(emit);post('collecting');};
    script.onerror=()=>{pending=[];post('blocked');};document.head.append(script);return;
@@ -71,7 +71,7 @@ function renderAnalyticsBridge({measurementId=MEASUREMENT_ID}={}){
  const script='('+collector.toString()+')('+JSON.stringify(protocol)+','+JSON.stringify(measurementId)+','+JSON.stringify(VERSION)+','+JSON.stringify(PARENTS)+');';
  const hash=createHash('sha256').update(script).digest('base64');
  const csp="default-src 'none'; script-src 'sha256-"+hash+"' https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; img-src https://*.google-analytics.com; base-uri 'none'; form-action 'none'; frame-ancestors "+PARENTS.join(' ')+"; sandbox allow-scripts allow-same-origin";
- return {html:'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>VCP Resume usage measurement</title></head><body><script>'+script+'</script></body></html>',csp};
+ return {html:'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Veteran Resumes usage measurement</title></head><body><script>'+script+'</script></body></html>',csp};
 }
 function serveAnalyticsBridge(req,res){
  const {html,csp}=renderAnalyticsBridge();res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Content-Security-Policy',csp);res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cache-Control','public, max-age=300, s-maxage=86400');res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');
