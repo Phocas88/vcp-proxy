@@ -25,3 +25,12 @@ test('previously generated letters stay accessible only to their original owner 
  s.sessions.set(session.id,session);s.db.records.set('_privateResumeProgramUsers/owner-a/builds/'+id,{status:'complete',sessionId:session.id,input,careerKit:{coverLetter:result.coverLetter},createdAt:1});
  assert.equal((await s.run('letter-list')).data.legacy[0].id,id);assert.equal((await s.run('letter-legacy',{letterId:id})).data.result.coverLetter,result.coverLetter);assert.equal((await s.run('letter-legacy',{letterId:id},{'x-vcp-firebase-token':'owner-b'})).code,404);assert.equal(s.calls(),0);assert.equal(s.bodies.length,0);
 });
+
+
+test('new-domain cover letter checkout returns to that app and old paid letters stay recoverable',async()=>{
+ for(const origin of ['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']){
+  const s=setup(),requestId=crypto.randomUUID(),p=await s.run('letter-prepare',{requestId,input,consent:true,storageConsent:true},{origin});assert.equal(p.code,200,JSON.stringify(p.data));
+  for(const url of [s.bodies[0].success_url,s.bodies[0].cancel_url]){assert.equal(new URL(url).origin,origin);assert.equal(new URL(url).pathname,'/');assert.equal(new URL(url).hash,'#letter');}
+  const old=setup(),purchase=await old.prepare();old.paid(0);const recovered=await old.run('letter-get',{letterId:purchase.id},{origin});assert.equal(recovered.code,200);assert.equal(recovered.data.status,'paid');assert.equal(old.bodies.length,1);
+ }
+});

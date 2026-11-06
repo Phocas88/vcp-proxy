@@ -6,8 +6,9 @@ const PRICE = 199;
 // No-cost Checkout requires 2023-08-16 or later. Scope this version to this program.
 const STRIPE_API_VERSION = '2024-06-20';
 const PRODUCT = 'vcp-resume-workspace';
-const ORIGINS = new Set(['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app']);
-const sitePath = origin => origin.includes('mobile-resume-review-app') ? '/index.html' : '/resumereview/';
+const RESUME_ORIGINS = new Set(['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']);
+const ORIGINS = new Set(['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app',...RESUME_ORIGINS]);
+const sitePath = origin => RESUME_ORIGINS.has(origin) ? '/' : origin==='https://mobile-resume-review-app.vercel.app' ? '/index.html' : '/resumereview/';
 const fail = (status,message,publicCode) => Object.assign(new Error(message),{status,public:true,publicCode});
 const DIAGNOSTIC_CODES=new Set(['AI_AUTHENTICATION','AI_ACCESS','AI_BILLING_LIMIT','AI_RATE_LIMIT','AI_QUOTA_OR_RATE_LIMIT','AI_PROVIDER_UNAVAILABLE','AI_REQUEST_REJECTED','AI_TIMEOUT','AI_INVALID_RESPONSE','AI_OUTPUT_TRUNCATED','AI_REWRITE_WITHHELD']);
 const DIAGNOSTIC_MESSAGES={
