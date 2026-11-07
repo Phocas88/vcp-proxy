@@ -19,17 +19,20 @@ function collector(protocol,measurementId,version,parents){
   if(typeof name!=='string'||!Object.prototype.hasOwnProperty.call(protocol.events,name)||!params||typeof params!=='object'||Array.isArray(params))return null;
   const out={};for(const [key,values]of Object.entries(protocol.events[name]))if(values.includes(params[key]))out[key]=params[key];return out;
  };
+ function flushActivity(){
+  if(activityTimer!==null)window.clearTimeout(activityTimer);activityTimer=null;
+  const events=activity;activity=[];if(stopped||!loaded||!events.length)return;
+  // Page navigation must not discard a consented website button click. This
+  // keepalive contains only fixed categories, never URLs or browser IDs.
+  window.fetch('/api/resume-activity',{method:'POST',mode:'same-origin',credentials:'omit',referrerPolicy:'no-referrer',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({protocol:version,events})}).catch(()=>{});
+ }
  function recordActivity(value){
   if(typeof window.fetch!=='function'||value.name==='vcp_resume_active'||!ownerOrigin?.startsWith('https://'))return;
   if(activity.length<20)activity.push({name:value.name,screen:value.screen,source});
   if(activityTimer!==null)return;
-  activityTimer=window.setTimeout(()=>{
-   activityTimer=null;if(stopped||!loaded){activity=[];return;}
-   const events=activity;activity=[];if(!events.length)return;
-   // Only fixed event/screen/source enums. Browser IDs and parent data stay out.
-   window.fetch('/api/resume-activity',{method:'POST',mode:'same-origin',credentials:'omit',referrerPolicy:'no-referrer',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({protocol:version,events})}).catch(()=>{});
-  },1200);
+  activityTimer=window.setTimeout(flushActivity,1200);
  }
+ window.addEventListener('pagehide',flushActivity);
  function emit(value){
   if(stopped||!configured||!safeScreen(value.screen)||!/^\d{9,13}$/.test(value.session_id||''))return;
   const params=clean(value.name,value.params);if(!params)return;

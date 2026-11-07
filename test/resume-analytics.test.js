@@ -2,13 +2,13 @@
 const test=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const {createHash}=require('node:crypto');
 const {renderAnalyticsBridge,serveAnalyticsBridge,VERSION}=require('../api/_lib/resume-analytics');
 const MEASUREMENT_ID='G-TEST00000';
-function fixture(){
- const messages=[],scripts=[],listeners={};let parentReads=0;
+function fixture({activity=false}={}){
+ const messages=[],scripts=[],listeners={},requests=[];let parentReads=0;
  const parent={postMessage:(value,origin)=>messages.push({value,origin})};for(const key of ['document','location'])Object.defineProperty(parent,key,{get(){parentReads++;throw new Error('Private parent access');}});
- const window={parent,addEventListener:(name,fn)=>listeners[name]=fn};const document={head:{append:script=>scripts.push(script)},createElement:()=>({}),cookie:''};
+ const window={parent,addEventListener:(name,fn)=>listeners[name]=fn};if(activity)Object.assign(window,{fetch:(url,options)=>{requests.push({url,options});return Promise.resolve();},setTimeout:()=>1,clearTimeout(){}});const document={head:{append:script=>scripts.push(script)},createElement:()=>({}),cookie:''};
  const {html}=renderAnalyticsBridge({measurementId:MEASUREMENT_ID});vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{window,parent,document,Date,Number,Array,Object,JSON,String});
  const send=(data,origin='https://veterancareerpath.com',source=parent)=>listeners.message({data:{protocol:VERSION,...data},origin,source});
- return {window,send,scripts,messages,parentReads:()=>parentReads};
+ return {window,send,scripts,messages,requests,hide:()=>listeners.pagehide(),parentReads:()=>parentReads};
 }
 const config={type:'configure',client_id:'123456789.1793200000000',session_id:'1793200000',source:'linkedin',screen:'home'};
 test('the public bridge has a hash-locked script, no editor access, no referrer and explicit embedding origins',()=>{
@@ -54,4 +54,10 @@ test('public website views and calls to action are distinct from app activity an
  const settings=f.window.dataLayer.map(v=>Array.from(v)).find(v=>v[0]==='config')[2];assert.equal(settings.page_location,origin+'/');
  f.send({type:'event',name:'vcp_resume_website_action',screen:'website',session_id:config.session_id,params:{action:'upload_resume',email:'PRIVATE_EMAIL',url:'PRIVATE_QUERY'}},origin);
  const event=f.window.dataLayer.map(v=>Array.from(v)).find(v=>v[0]==='event');assert.equal(event[1],'vcp_resume_website_action');assert.equal(event[2].action,'upload_resume');assert.equal(event[2].page_location,origin+'/');assert.doesNotMatch(JSON.stringify(event),/PRIVATE_/);assert.equal(f.parentReads(),0);
+});
+
+test('leaving a website page flushes only consented aggregate categories and withdrawal cancels that flush',()=>{
+ const origin='https://veteranresumes.com',packet={type:'event',name:'vcp_resume_website_action',screen:'website',session_id:config.session_id,params:{action:'start_resume',email:'PRIVATE_EMAIL'}};
+ const f=fixture({activity:true});f.send({...config,screen:'website'},origin);f.scripts[0].onload();f.send(packet,origin);assert.equal(f.requests.length,0);f.hide();assert.equal(f.requests.length,1);assert.equal(f.requests[0].options.keepalive,true);assert.deepEqual(JSON.parse(f.requests[0].options.body).events,[{name:packet.name,screen:'website',source:'linkedin'}]);assert.doesNotMatch(f.requests[0].options.body,/PRIVATE_|client_id|session_id/);
+ const stopped=fixture({activity:true});stopped.send({...config,screen:'website'},origin);stopped.scripts[0].onload();stopped.send(packet,origin);stopped.send({type:'stop'},origin);stopped.hide();assert.equal(stopped.requests.length,0);
 });
