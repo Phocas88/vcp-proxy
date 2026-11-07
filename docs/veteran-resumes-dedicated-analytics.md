@@ -1,20 +1,18 @@
 # Dedicated VeteranResumes.com Analytics property
 
-Status: prepared for a separate GA4 property; not activated. The production app
-continues using the existing Veteran Career Path property until this change is
-completed and released. Do not merge with an empty standalone Measurement ID.
+Configuration: the separate VeteranResumes.com property uses `G-H7B54FKZGX`,
+supplied by the owner on November 7, 2026. The main website's legacy app keeps
+`G-CMFKLT321J`. Deployment of this change activates the new routing.
 
-## Google account setup
+## Google account settings
 
 1. Open https://analytics.google.com/analytics/web/ with the account that owns the
-   site's Analytics. In Admin, choose Create > Property. Name the property
-   `VeteranResumes.com` and use the business's reporting time zone and currency.
-2. Add a Web data stream for `https://veteranresumes.com/`, named
-   `Veteran Resumes website and app`. Turn enhanced measurement off: the app's
+   site's Analytics and select the dedicated `VeteranResumes.com` property.
+2. Its Web data stream for `https://veteranresumes.com/` uses `G-H7B54FKZGX`.
+   Keep enhanced measurement off: the app's
    consent-based collector already supplies permitted page views and events and
    must not collect form values, searches, uploaded filenames or private URLs.
-3. Copy the public Measurement ID (`G-...`). It must be different from
-   `G-CMFKLT321J`. No password, API key or Measurement Protocol secret is needed.
+3. No password, API key or Measurement Protocol secret is needed for the tag.
    Do not paste a second Google tag into the editor or public landing page.
 
 Creating the property and data stream requires Google account access. GitHub,
