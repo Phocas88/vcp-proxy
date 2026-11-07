@@ -22,9 +22,13 @@ let browser;
 try{
  browser=await chromium.launch({channel:'chromium'});
  for(const target of targets){
- const context=await browser.newContext();const external=[],hits=[],activity=[];const page=await context.newPage();
+ const context=await browser.newContext();const external=[],hits=[],activity=[],diagnostics={requests:[],errors:[],scripts:[]};const page=await context.newPage();
+ page.on('console',message=>{if(message.type()==='error')diagnostics.errors.push(message.text().replace(/PRIVATE_[A-Z_]+/g,'REDACTED_FIXTURE').slice(0,350));});
+ page.on('pageerror',error=>diagnostics.errors.push(error.message.slice(0,350)));
+ page.on('response',response=>{if(new URL(response.url()).hostname==='www.googletagmanager.com')diagnostics.scripts.push({path:new URL(response.url()).pathname,status:response.status()});});
  await context.route('**/*',async route=>{
   const request=route.request(),url=new URL(request.url());
+  if(diagnostics.requests.length<30)diagnostics.requests.push(url.origin+url.pathname);
   if(url.hostname==='vcp-proxy.vercel.app'&&url.pathname==='/api/resume-activity'){activity.push(request.postDataJSON());return route.fulfill({status:204,body:''});}
   if(url.origin===target.origin)return route.fulfill({contentType:'text/html',body:parentPage(target)});
   if(url.hostname==='vcp-proxy.vercel.app')return route.fulfill({contentType:'text/html',headers:{'Content-Security-Policy':csp,'Referrer-Policy':'no-referrer'},body:html});
@@ -33,6 +37,7 @@ try{
  });
  await page.goto(target.root+'?build=PRIVATE_BUILD&email=PRIVATE_QUERY_EMAIL');
  const deadline=Date.now()+60000;while(Date.now()<deadline&&!hits.some(hit=>(hit.url+' '+hit.body).includes(target.event)))await new Promise(resolve=>setTimeout(resolve,250));
+ if(!hits.length)console.log('ANALYTICS_TAG_DIAGNOSTICS '+JSON.stringify({site:target.site,...diagnostics}));
  assert.ok(hits.length,'The live Google SDK should attempt a measurement request for '+target.site);assert.ok(hits.some(hit=>(hit.url+' '+hit.body).includes(target.event)),'The SDK should serialize a permitted event for '+target.site);
  await page.waitForTimeout(1600);assert.ok(activity.length,'Consented activity should reach the aggregate transport');assert.ok(!JSON.stringify(activity).includes(cid)&&!JSON.stringify(activity).includes(sid)&&!JSON.stringify(activity).includes('PRIVATE_'),'Activity transport excludes identifiers and private fields');
  assert.ok(!JSON.stringify(external).includes('PRIVATE_'),'No parent URL, title, field, filename or extra event property may reach Google.');
