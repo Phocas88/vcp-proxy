@@ -4,6 +4,19 @@ Configuration: the separate VeteranResumes.com property uses `G-H7B54FKZGX`,
 supplied by the owner on November 7, 2026. The main website's legacy app keeps
 `G-CMFKLT321J`. Deployment of this change activates the new routing.
 
+The new Google tag emits in a separate origin on the same site, but did not emit
+from the former cross-site collector in browser checks. The standalone app uses
+`https://usage.veteranresumes.com/api/resume-analytics`, externally rewritten to
+the isolated backend collector. The legacy app keeps the original proxy origin.
+Google code remains unable to access the app's resume fields or origin storage.
+
+The collector hostname is assigned to the Veteran Resumes Vercel project. DNS is
+managed at GoDaddy. Before releasing the frontend, its CNAME record must exist:
+name `usage`, value `452a2998e799baed.vercel-dns-017.com`. Verify DNS and HTTPS,
+not merely Vercel's domain-ownership flag. Other routes on the collector hostname
+redirect to the public website. Only the two fixed measurement endpoints proxy
+to the backend; no private app API is exposed through this host.
+
 ## Google account settings
 
 1. Open https://analytics.google.com/analytics/web/ with the account that owns the
@@ -26,11 +39,15 @@ the new destination is activated.
    `api/_lib/resume-analytics-config.json`. Keep `measurementId` unchanged for
    the main website's legacy app.
 2. Run `node test/resume-analytics.test.js` and the existing analytics privacy
-   workflow, including its real Google SDK check. Commit and deploy the backend.
+   workflow, including real Google SDK checks for the legacy app, standalone app
+   and public website. Confirm the collector's CNAME and HTTPS are available,
+   then commit and deploy the backend.
 3. In the frontend repository, bump the collector query version in
    `resume-workspace-src/public/analytics-model.js` so existing CDN caches cannot
-   retain the previous routing. Update `analytics-guide.html` to identify the new
-   property and public ID. Run the required frontend checks and deploy.
+   retain the previous routing. Select the same-site collector only on the exact
+   standalone domain, and preserve the backend collector's hash-locked CSP when
+   rewriting the public endpoint. Update `analytics-guide.html` to identify the
+   new property and public ID. Run the required frontend checks and deploy.
 4. Check the public page and `/app/` with Analytics consent granted. Confirm only
    the new ID is selected, Google request locations contain only the synthetic
    public screen URLs, and consent withdrawal stops collection. Check the legacy

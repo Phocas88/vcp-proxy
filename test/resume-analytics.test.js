@@ -96,3 +96,14 @@ test('an initialized bridge cannot switch properties through later messages or a
  const entries=f.window.dataLayer.map(v=>Array.from(v));assert.equal(f.scripts.length,1);assert.equal(entries.filter(v=>v[0]==='config').length,1);assert.equal(entries.find(v=>v[0]==='event')[2].send_to,VETERAN_RESUMES_MEASUREMENT_ID);
  f.send({type:'stop'},origin);assert.equal(f.window['ga-disable-'+VETERAN_RESUMES_MEASUREMENT_ID],true);assert.equal(f.window['ga-disable-'+MEASUREMENT_ID],undefined);
 });
+
+test('the same-site collector can record fixed activity while lookalike origins and private fields cannot write',async()=>{
+ const {createActivityHandler}=require('../api/_lib/resume-activity');let writes=0;
+ const db={collection:()=>({doc:()=>({set:async()=>{writes++;}})})};
+ const handler=createActivityHandler({db,increment:value=>value,rateLimit:()=>false});
+ const body={protocol:VERSION,events:[{name:'page_view',screen:'website',source:'direct'}]};
+ const response=()=>({headers:{},setHeader(k,v){this.headers[k]=v;},status(code){this.code=code;return this;},json(body){this.body=body;},end(){}});
+ const ok=response();await handler({method:'POST',headers:{origin:'https://usage.veteranresumes.com','content-type':'application/json'},body},ok);assert.equal(ok.code,204);assert.equal(ok.headers['Access-Control-Allow-Origin'],'https://usage.veteranresumes.com');assert.equal(writes,1);
+ for(const origin of ['https://usage.veteranresumes.com.evil.invalid','https://evil.veteranresumes.com']){const res=response();await handler({method:'POST',headers:{origin,'content-type':'application/json'},body},res);assert.equal(res.code,403);}
+ const invalid=response();await handler({method:'POST',headers:{origin:'https://usage.veteranresumes.com','content-type':'application/json'},body:{...body,email:'PRIVATE_EMAIL'}},invalid);assert.equal(invalid.code,400);assert.equal(writes,1);assert.doesNotMatch(JSON.stringify(invalid),/PRIVATE_EMAIL/);
+});
