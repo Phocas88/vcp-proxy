@@ -26,6 +26,14 @@ test('unknown events, private screens, IDs, extra fields and free text are disca
  const f=fixture();f.send(config);f.scripts[0].onload();const packet={type:'event',name:'vcp_resume_review_failed',params:{reason:'provider',email:'PRIVATE_EMAIL',resume:'PRIVATE_RESUME',error:'PRIVATE_ERROR'},screen:'resume_review',session_id:config.session_id,engagement_time_msec:1200,user_id:'PRIVATE_ACCOUNT',page_location:'https://example.com/?resume=PRIVATE_URL'};
  f.send(packet);f.send({...packet,name:'PRIVATE_EVENT'});f.send({...packet,screen:'calculator'});f.send({...packet,screen:'PRIVATE_SCREEN'});f.send({...packet,session_id:'PRIVATE_SESSION'});const events=f.window.dataLayer.map(value=>Array.from(value)).filter(value=>value[0]==='event');assert.equal(events.length,1);assert.equal(events[0][2].reason,'provider');assert.equal(events[0][2].engagement_time_msec,1200);assert.equal(events[0][2].page_location,'https://veterancareerpath.com/resumereview/screen/resume_review');assert.doesNotMatch(JSON.stringify(events),/PRIVATE_/);assert.equal(f.parentReads(),0);
 });
+
+test('bounded identity, screen and cookie settings precede destination startup as well as explicit configuration',()=>{
+ const f=fixture();f.send({...config,page_location:'PRIVATE_URL',clientId:'PRIVATE_UID'},'https://veteranresumes.com');
+ const commands=f.window.dataLayer.map(v=>Array.from(v)),global=commands.find(v=>v[0]==='set')[1],settings=commands.find(v=>v[0]==='config')[2];
+ assert.ok(commands.findIndex(v=>v[0]==='set')<commands.findIndex(v=>v[0]==='js'));
+ for(const key of ['client_id','session_id','page_location','page_title','cookie_prefix','cookie_domain','cookie_expires','cookie_update','cookie_flags','send_page_view','allow_google_signals','allow_ad_personalization_signals'])assert.equal(global[key],settings[key],key);
+ assert.equal(global.send_page_view,false);assert.equal(global.page_location,'https://veteranresumes.com/screen/home');assert.doesNotMatch(JSON.stringify(commands),/PRIVATE_/);
+});
 test('withdrawal disables the destination, drops queued events and rejects all later configuration',()=>{
  const f=fixture();f.send(config);f.send({type:'event',name:'page_view',params:{},screen:'home',session_id:config.session_id});f.send({type:'stop'});assert.equal(f.window['ga-disable-'+MEASUREMENT_ID],true);f.scripts[0].onload();f.send(config);f.send({type:'event',name:'vcp_resume_download',params:{format:'pdf',document:'resume'},screen:'resume_download',session_id:config.session_id});assert.equal(f.window.dataLayer.filter(value=>value[0]==='event').length,0);assert.ok(f.messages.some(item=>item.value.type==='stopped'));
 });

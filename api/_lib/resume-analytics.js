@@ -61,11 +61,14 @@ function collector(protocol,destinations,version,parents){
    if(configured||!/^\d{1,10}\.\d{10,13}$/.test(value.client_id||'')||!/^\d{9,13}$/.test(value.session_id||'')||!protocol.sources.includes(value.source)||!safeScreen(value.screen))return;
    measurementId=destination;ownerOrigin=event.origin;configured=true;currentScreen=value.screen;identity=value.client_id;source=value.source;
    window.dataLayer=[];window.gtag=function(){window.dataLayer.push(arguments);};
-   window.gtag('consent','default',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
-   window.gtag('set',{allow_google_signals:false,allow_ad_personalization_signals:false,ads_data_redaction:true,url_passthrough:false});
-   window.gtag('js',new Date());
    const referrers={tiktok:'https://www.tiktok.com/',linkedin:'https://www.linkedin.com/',google:'https://www.google.com/',bing:'https://www.bing.com/',other:'',direct:''};
-   window.gtag('config',measurementId,{send_page_view:false,client_id:identity,session_id:value.session_id,cookie_prefix:'vcp_resume',cookie_domain:'none',cookie_expires:0,cookie_update:false,cookie_flags:'SameSite=None;Secure;Partitioned',allow_google_signals:false,allow_ad_personalization_signals:false,page_location:page(currentScreen),page_title:'Veteran Resumes · '+protocol.screens[currentScreen],page_referrer:referrers[value.source],campaign_source:value.source,campaign_medium:['tiktok','linkedin'].includes(value.source)?'social':value.source==='direct'?'(none)':'referral',campaign_name:'vcp_resume',linker:{accept_incoming:false,domains:[]},...(ownerOrigin.startsWith('http://')?{debug_mode:true}:{})});
+   const settings={send_page_view:false,client_id:identity,session_id:value.session_id,cookie_prefix:'vcp_resume',cookie_domain:'none',cookie_expires:0,cookie_update:false,cookie_flags:'SameSite=None;Secure;Partitioned',allow_google_signals:false,allow_ad_personalization_signals:false,page_location:page(currentScreen),page_title:'Veteran Resumes · '+protocol.screens[currentScreen],page_referrer:referrers[value.source],campaign_source:value.source,campaign_medium:['tiktok','linkedin'].includes(value.source)?'social':value.source==='direct'?'(none)':'referral',campaign_name:'vcp_resume',linker:{accept_incoming:false,domains:[]},...(ownerOrigin.startsWith('http://')?{debug_mode:true}:{})};
+   window.gtag('consent','default',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});
+   // New Google tags initialize their destination before the explicit config
+   // command. Apply the same bounded settings globally before that startup too.
+   window.gtag('set',{...settings,ads_data_redaction:true,url_passthrough:false});
+   window.gtag('js',new Date());
+   window.gtag('config',measurementId,settings);
    const script=document.createElement('script');script.async=true;script.referrerPolicy='no-referrer';script.src='https://www.googletagmanager.com/gtag/js?id='+measurementId;
    script.onload=()=>{if(stopped)return;loaded=true;const queue=pending;pending=[];queue.forEach(emit);post('collecting');};
    script.onerror=()=>{pending=[];post('blocked');};document.head.append(script);return;

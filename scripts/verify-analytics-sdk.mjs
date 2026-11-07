@@ -43,6 +43,8 @@ try{
  await page.waitForTimeout(1600);assert.ok(activity.length,'Consented activity should reach the aggregate transport');assert.ok(!JSON.stringify(activity).includes(cid)&&!JSON.stringify(activity).includes(sid)&&!JSON.stringify(activity).includes('PRIVATE_'),'Activity transport excludes identifiers and private fields');
  assert.ok(!JSON.stringify(external).includes('PRIVATE_'),'No parent URL, title, field, filename or extra event property may reach Google.');
  for(const hit of hits){const url=new URL(hit.url);assert.equal(url.searchParams.get('tid'),target.id);assert.equal(url.searchParams.get('cid'),cid);assert.equal(url.searchParams.get('dl'),target.screen==='website'?target.root:target.root+'screen/'+target.screen);}
+ const names=hits.flatMap(hit=>[new URL(hit.url).searchParams.get('en'),...hit.body.split('\n').map(line=>new URLSearchParams(line).get('en'))]).filter(Boolean);
+ assert.equal(names.filter(name=>name==='page_view').length,1,'Startup must not duplicate the app-supplied page view');
  const cookies=(await context.cookies()).filter(cookie=>cookie.name.startsWith('vcp_resume'));assert.ok(cookies.length,'Cross-site measurement should establish its isolated session cookie');assert.ok(cookies.every(cookie=>cookie.secure&&cookie.sameSite==='None'&&cookie.partitionKey===target.origin),'Collector cookies must be partitioned by the embedding site');
  console.log('REAL_ANALYTICS_SDK_CHECK '+JSON.stringify({site:target.site,measurementId:target.id,sdkLoaded:true,allowedEventSerialized:true,privateDataSent:false,analyticsHitsDelivered:0,destinationMatched:true,browserIdMatched:true,isolatedCollector:true,sameSiteCollector:target.site!=='legacy-app',partitionedCookies:true,aggregateTransportPrivateDataSent:false}));
  await context.close();
