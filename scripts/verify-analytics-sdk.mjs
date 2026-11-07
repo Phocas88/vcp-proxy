@@ -21,25 +21,25 @@ assert.notEqual(MEASUREMENT_ID,VETERAN_RESUMES_MEASUREMENT_ID,'The two sites mus
 const parentPage=target=>`<!doctype html><html><head><title>PRIVATE_PARENT_TITLE</title></head><body><form><input value="PRIVATE_EMAIL"><textarea>PRIVATE_RESUME_AND_VA_ENTRY</textarea></form><a href="https://profiles.veterancareerpath.com/veteran/PRIVATE_CV">PRIVATE_FILENAME.pdf</a><iframe id="bridge" hidden sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" src="https://vcp-proxy.vercel.app/"></iframe><script>addEventListener('message',event=>{if(event.origin!=='https://vcp-proxy.vercel.app'||event.data.type!=='ready')return;const target=document.getElementById('bridge').contentWindow;target.postMessage({protocol:${JSON.stringify(VERSION)},type:'configure',client_id:${JSON.stringify(cid)},session_id:${JSON.stringify(sid)},source:'linkedin',screen:${JSON.stringify(target.screen)}},'https://vcp-proxy.vercel.app');for(const name of ${JSON.stringify(['page_view',target.event])})target.postMessage({protocol:${JSON.stringify(VERSION)},type:'event',name,screen:${JSON.stringify(target.screen)},session_id:${JSON.stringify(sid)},engagement_time_msec:1500,params:{kind:'new',action:'example',email:'PRIVATE_EMAIL',resume:'PRIVATE_RESUME',filename:'PRIVATE_FILENAME',page_location:'https://example.com/PRIVATE_URL'}},'https://vcp-proxy.vercel.app');});document.getElementById('bridge').addEventListener('load',()=>document.getElementById('bridge').contentWindow.postMessage({protocol:${JSON.stringify(VERSION)},type:'hello'},'https://vcp-proxy.vercel.app'));</script></body></html>`;
 async function diagnoseTag(browser){
  const variants=[
-  {name:'without-cookie-overrides',change:s=>s.replace(/cookie_prefix:'vcp_resume',cookie_domain:'none',cookie_expires:0,cookie_update:false,cookie_flags:'SameSite=None;Secure;Partitioned',/,'')},
-  {name:'without-global-set',change:s=>s.replace(/window.gtag\('set',\{[^;]+;\n/,'')},
-  {name:'without-custom-identities',change:s=>s.replace('client_id:identity,session_id:value.session_id,','').replace(',session_id:value.session_id};','};')},
-  {name:'with-auto-page-view',change:s=>s.replace('send_page_view:false','send_page_view:true')},
-  {name:'delayed-events',change:s=>s.replace("script.onload=()=>{if(stopped)return;loaded=true;const queue=pending;pending=[];queue.forEach(emit);post('collecting');};","script.onload=()=>{window.setTimeout(()=>{if(stopped)return;loaded=true;const queue=pending;pending=[];queue.forEach(emit);post('collecting');},500);};")},
-  {name:'without-linker',change:s=>s.replace("linker:{accept_incoming:false,domains:[]},",'')}
+  {name:'minimal-config',change:s=>s.replace(/window.gtag\('config',measurementId,\{[^\n]+\n/,"window.gtag('config',measurementId,{send_page_view:false,page_location:page(currentScreen),allow_google_signals:false,allow_ad_personalization_signals:false});\n")},
+  {name:'without-csp',change:s=>s,csp:false},
+  {name:'without-sandbox',change:s=>s,sandbox:false},
+  {name:'visible-frame',change:s=>s,visible:true},
+  {name:'simple-iframe-tag',change:()=>"window.dataLayer=[];window.gtag=function(){window.dataLayer.push(arguments);};window.gtag('consent','default',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});window.gtag('js',new Date());window.gtag('config',"+JSON.stringify(VETERAN_RESUMES_MEASUREMENT_ID)+",{page_location:'https://veteranresumes.com/',allow_google_signals:false});window.gtag('event','vcp_resume_review_complete',{send_to:"+JSON.stringify(VETERAN_RESUMES_MEASUREMENT_ID)+"});const script=document.createElement('script');script.src='https://www.googletagmanager.com/gtag/js?id='+"+JSON.stringify(VETERAN_RESUMES_MEASUREMENT_ID)+";document.head.append(script);"}
  ];
  for(const probe of variants){
   const context=await browser.newContext(),page=await context.newPage(),requests=[],errors=[];
   const fixture={origin:'https://veteranresumes.com',screen:'home',event:'vcp_resume_review_complete'};
   const original=renderAnalyticsBridge(),script=original.html.match(/<script>([\s\S]*)<\/script>/)[1],changed=probe.change(script);
-  assert.notEqual(changed,script,'Diagnostic variation should change the collector: '+probe.name);
+
   const bridge={html:original.html.replace(script,changed),csp:original.csp.replace(/sha256-[^']+/,"sha256-"+createHash('sha256').update(changed).digest('base64'))};
+  if(probe.sandbox===false)bridge.csp=bridge.csp.replace('; sandbox allow-scripts allow-same-origin','');
   page.on('pageerror',error=>errors.push(error.message.slice(0,200)));
   await context.route('**/*',async route=>{
    const request=route.request(),url=new URL(request.url());
-   if(url.origin===fixture.origin)return route.fulfill({contentType:'text/html',body:parentPage(fixture)});
+   if(url.origin===fixture.origin)return route.fulfill({contentType:'text/html',body:parentPage(fixture).replace(probe.sandbox===false?'sandbox=\"allow-scripts allow-same-origin\"':'NO_MATCH','').replace(probe.visible?' hidden ':'NO_MATCH',' ')});
    if(url.hostname==='vcp-proxy.vercel.app'&&url.pathname==='/api/resume-activity')return route.fulfill({status:204,body:''});
-   if(url.hostname==='vcp-proxy.vercel.app')return route.fulfill({contentType:'text/html',headers:{'Content-Security-Policy':bridge.csp,'Referrer-Policy':'no-referrer'},body:bridge.html});
+   if(url.hostname==='vcp-proxy.vercel.app')return route.fulfill({contentType:'text/html',headers:probe.csp===false?{}:{'Content-Security-Policy':bridge.csp,'Referrer-Policy':'no-referrer'},body:bridge.html});
    requests.push({path:url.origin+url.pathname,event:(request.url()+' '+(request.postData()||'')).includes(fixture.event)});
    if(url.hostname==='www.googletagmanager.com')return route.continue();
    return route.abort();
