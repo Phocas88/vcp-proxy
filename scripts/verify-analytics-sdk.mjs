@@ -2,6 +2,7 @@
 // before delivery so this privacy check does not populate the owner's reports.
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
+import {createHash} from 'node:crypto';
 import {chromium} from 'playwright';
 const require=createRequire(import.meta.url);
 const {renderAnalyticsBridge,VERSION,MEASUREMENT_ID,VETERAN_RESUMES_MEASUREMENT_ID}=require('../api/_lib/resume-analytics.js');
@@ -19,26 +20,31 @@ assert.ok(VETERAN_RESUMES_MEASUREMENT_ID,'Dedicated Veteran Resumes Measurement 
 assert.notEqual(MEASUREMENT_ID,VETERAN_RESUMES_MEASUREMENT_ID,'The two sites must use different destinations');
 const parentPage=target=>`<!doctype html><html><head><title>PRIVATE_PARENT_TITLE</title></head><body><form><input value="PRIVATE_EMAIL"><textarea>PRIVATE_RESUME_AND_VA_ENTRY</textarea></form><a href="https://profiles.veterancareerpath.com/veteran/PRIVATE_CV">PRIVATE_FILENAME.pdf</a><iframe id="bridge" hidden sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" src="https://vcp-proxy.vercel.app/"></iframe><script>addEventListener('message',event=>{if(event.origin!=='https://vcp-proxy.vercel.app'||event.data.type!=='ready')return;const target=document.getElementById('bridge').contentWindow;target.postMessage({protocol:${JSON.stringify(VERSION)},type:'configure',client_id:${JSON.stringify(cid)},session_id:${JSON.stringify(sid)},source:'linkedin',screen:${JSON.stringify(target.screen)}},'https://vcp-proxy.vercel.app');for(const name of ${JSON.stringify(['page_view',target.event])})target.postMessage({protocol:${JSON.stringify(VERSION)},type:'event',name,screen:${JSON.stringify(target.screen)},session_id:${JSON.stringify(sid)},engagement_time_msec:1500,params:{kind:'new',action:'example',email:'PRIVATE_EMAIL',resume:'PRIVATE_RESUME',filename:'PRIVATE_FILENAME',page_location:'https://example.com/PRIVATE_URL'}},'https://vcp-proxy.vercel.app');});document.getElementById('bridge').addEventListener('load',()=>document.getElementById('bridge').contentWindow.postMessage({protocol:${JSON.stringify(VERSION)},type:'hello'},'https://vcp-proxy.vercel.app'));</script></body></html>`;
 async function diagnoseTag(browser){
- for(const probe of [
-  {name:'new-id-standard',origin:'https://veteranresumes.com',id:VETERAN_RESUMES_MEASUREMENT_ID,direct:true},
-  {name:'new-id-legacy-parent',origin:'https://veterancareerpath.com',id:VETERAN_RESUMES_MEASUREMENT_ID},
-  {name:'legacy-id-standalone-parent',origin:'https://veteranresumes.com',id:MEASUREMENT_ID}
- ]){
+ const variants=[
+  {name:'without-cookie-overrides',change:s=>s.replace(/cookie_prefix:'vcp_resume',cookie_domain:'none',cookie_expires:0,cookie_update:false,cookie_flags:'SameSite=None;Secure;Partitioned',/,'')},
+  {name:'without-global-set',change:s=>s.replace(/window.gtag\('set',\{[^;]+;\n/,'')},
+  {name:'without-custom-identities',change:s=>s.replace('client_id:identity,session_id:value.session_id,','').replace(',session_id:value.session_id};','};')},
+  {name:'with-auto-page-view',change:s=>s.replace('send_page_view:false','send_page_view:true')},
+  {name:'delayed-events',change:s=>s.replace("script.onload=()=>{if(stopped)return;loaded=true;const queue=pending;pending=[];queue.forEach(emit);post('collecting');};","script.onload=()=>{window.setTimeout(()=>{if(stopped)return;loaded=true;const queue=pending;pending=[];queue.forEach(emit);post('collecting');},500);};")},
+  {name:'without-linker',change:s=>s.replace("linker:{accept_incoming:false,domains:[]},",'')}
+ ];
+ for(const probe of variants){
   const context=await browser.newContext(),page=await context.newPage(),requests=[],errors=[];
-  const fixture={origin:probe.origin,screen:'home',event:'vcp_resume_review_complete'};
-  const bridge=renderAnalyticsBridge({measurementId:probe.id,veteranResumesMeasurementId:probe.id});
-  const direct=`<!doctype html><script async src="https://www.googletagmanager.com/gtag/js?id=${probe.id}"></script><script>window.dataLayer=[];function gtag(){dataLayer.push(arguments);}gtag('consent','default',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});gtag('js',new Date());gtag('config',${JSON.stringify(probe.id)},{page_location:'https://veteranresumes.com/',allow_google_signals:false});gtag('event','vcp_resume_review_complete',{send_to:${JSON.stringify(probe.id)}});</script>`;
+  const fixture={origin:'https://veteranresumes.com',screen:'home',event:'vcp_resume_review_complete'};
+  const original=renderAnalyticsBridge(),script=original.html.match(/<script>([\s\S]*)<\/script>/)[1],changed=probe.change(script);
+  assert.notEqual(changed,script,'Diagnostic variation should change the collector: '+probe.name);
+  const bridge={html:original.html.replace(script,changed),csp:original.csp.replace(/sha256-[^']+/,"sha256-"+createHash('sha256').update(changed).digest('base64'))};
   page.on('pageerror',error=>errors.push(error.message.slice(0,200)));
   await context.route('**/*',async route=>{
-   const url=new URL(route.request().url());
-   if(url.origin===probe.origin)return route.fulfill({contentType:'text/html',body:probe.direct?direct:parentPage(fixture)});
+   const request=route.request(),url=new URL(request.url());
+   if(url.origin===fixture.origin)return route.fulfill({contentType:'text/html',body:parentPage(fixture)});
    if(url.hostname==='vcp-proxy.vercel.app'&&url.pathname==='/api/resume-activity')return route.fulfill({status:204,body:''});
    if(url.hostname==='vcp-proxy.vercel.app')return route.fulfill({contentType:'text/html',headers:{'Content-Security-Policy':bridge.csp,'Referrer-Policy':'no-referrer'},body:bridge.html});
-   requests.push(url.origin+url.pathname);
+   requests.push({path:url.origin+url.pathname,event:(request.url()+' '+(request.postData()||'')).includes(fixture.event)});
    if(url.hostname==='www.googletagmanager.com')return route.continue();
    return route.abort();
   });
-  await page.goto(probe.origin+'/');await page.waitForTimeout(6000);
+  await page.goto(fixture.origin+'/');await page.waitForTimeout(4000);
   console.log('ANALYTICS_CONTROL_PROBE '+JSON.stringify({name:probe.name,requests,errors}));await context.close();
  }
 }
