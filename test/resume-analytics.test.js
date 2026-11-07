@@ -2,11 +2,12 @@
 const test=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const {createHash}=require('node:crypto');
 const {renderAnalyticsBridge,serveAnalyticsBridge,VERSION}=require('../api/_lib/resume-analytics');
 const MEASUREMENT_ID='G-TEST00000';
-function fixture({activity=false}={}){
+const VETERAN_RESUMES_MEASUREMENT_ID='G-VETERAN1234';
+function fixture({activity=false,measurementId=MEASUREMENT_ID,veteranResumesMeasurementId=VETERAN_RESUMES_MEASUREMENT_ID}={}){
  const messages=[],scripts=[],listeners={},requests=[];let parentReads=0;
  const parent={postMessage:(value,origin)=>messages.push({value,origin})};for(const key of ['document','location'])Object.defineProperty(parent,key,{get(){parentReads++;throw new Error('Private parent access');}});
  const window={parent,addEventListener:(name,fn)=>listeners[name]=fn};if(activity)Object.assign(window,{fetch:(url,options)=>{requests.push({url,options});return Promise.resolve();},setTimeout:()=>1,clearTimeout(){}});const document={head:{append:script=>scripts.push(script)},createElement:()=>({}),cookie:''};
- const {html}=renderAnalyticsBridge({measurementId:MEASUREMENT_ID});vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{window,parent,document,Date,Number,Array,Object,JSON,String});
+ const {html}=renderAnalyticsBridge({measurementId,veteranResumesMeasurementId});vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{window,parent,document,Date,Number,Array,Object,JSON,String});
  const send=(data,origin='https://veterancareerpath.com',source=parent)=>listeners.message({data:{protocol:VERSION,...data},origin,source});
  return {window,send,scripts,messages,requests,hide:()=>listeners.pagehide(),parentReads:()=>parentReads};
 }
@@ -44,7 +45,7 @@ test('new website telemetry keeps consent and sanitizes locations to the owned a
  for(const origin of ['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']){
   const f=fixture();assert.equal(f.scripts.length,0);f.send(config,origin);assert.equal(f.scripts.length,1);
   const settings=f.window.dataLayer.map(v=>Array.from(v)).find(v=>v[0]==='config')[2];assert.equal(settings.page_location,'https://veteranresumes.com/screen/home');assert.equal(settings.allow_google_signals,false);
-  f.send({type:'stop'},origin);assert.equal(f.window['ga-disable-'+MEASUREMENT_ID],true);
+  f.send({type:'stop'},origin);assert.equal(f.window['ga-disable-'+VETERAN_RESUMES_MEASUREMENT_ID],true);assert.equal(f.window['ga-disable-'+MEASUREMENT_ID],undefined);
  }
  const f=fixture();for(const origin of ['https://veteranresumes.com.evil.example','https://evil.veteranresumes.com'])f.send(config,origin);assert.equal(f.scripts.length,0);
 });
@@ -60,4 +61,38 @@ test('leaving a website page flushes only consented aggregate categories and wit
  const origin='https://veteranresumes.com',packet={type:'event',name:'vcp_resume_website_action',screen:'website',session_id:config.session_id,params:{action:'start_resume',email:'PRIVATE_EMAIL'}};
  const f=fixture({activity:true});f.send({...config,screen:'website'},origin);f.scripts[0].onload();f.send(packet,origin);assert.equal(f.requests.length,0);f.hide();assert.equal(f.requests.length,1);assert.equal(f.requests[0].options.keepalive,true);assert.deepEqual(JSON.parse(f.requests[0].options.body).events,[{name:packet.name,screen:'website',source:'linkedin'}]);assert.doesNotMatch(f.requests[0].options.body,/PRIVATE_|client_id|session_id/);
  const stopped=fixture({activity:true});stopped.send({...config,screen:'website'},origin);stopped.scripts[0].onload();stopped.send(packet,origin);stopped.send({type:'stop'},origin);stopped.hide();assert.equal(stopped.requests.length,0);
+});
+
+test('the browser-verified parent origin selects exactly one property for the public site and app',()=>{
+ const groups=[
+  {origins:['https://veterancareerpath.com','https://www.veterancareerpath.com','https://mobile-resume-review-app.vercel.app','http://127.0.0.1:3000','http://localhost:3000'],id:MEASUREMENT_ID},
+  {origins:['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app'],id:VETERAN_RESUMES_MEASUREMENT_ID}
+ ];
+ for(const {origins,id}of groups)for(const origin of origins)for(const screen of ['website','home','resume_review']){
+  const f=fixture();f.send({type:'hello'},origin);assert.equal(f.messages.at(-1).value.type,'ready');assert.equal(f.scripts.length,0);
+  // A message cannot override the Google property, destination or browser origin.
+  f.send({...config,screen,measurementId:'G-ATTACKER123',origin:'https://attacker.invalid'},origin);f.send({...config,screen},origin);
+  assert.equal(f.scripts.length,1);assert.equal(f.scripts[0].src,'https://www.googletagmanager.com/gtag/js?id='+id);f.scripts[0].onload();
+  f.send({type:'event',name:'page_view',screen,session_id:config.session_id,params:{send_to:'G-ATTACKER123',measurement_id:'G-ATTACKER123'}},origin);
+  const entries=f.window.dataLayer.map(v=>Array.from(v)),configs=entries.filter(v=>v[0]==='config'),events=entries.filter(v=>v[0]==='event');
+  assert.equal(configs.length,1);assert.equal(configs[0][1],id);assert.equal(events.length,1);assert.equal(events[0][2].send_to,id);assert.doesNotMatch(JSON.stringify(entries),/G-ATTACKER123/);assert.equal(f.parentReads(),0);
+ }
+});
+
+test('a missing or invalid standalone property never falls back to the main website property',()=>{
+ for(const veteranResumesMeasurementId of ['',undefined,null,'G-invalid','AW-123456789','G-TEST/PRIVATE']){
+  for(const origin of ['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app']){
+   const f=fixture({veteranResumesMeasurementId:veteranResumesMeasurementId??''});f.send({type:'hello'},origin);f.send(config,origin);assert.equal(f.scripts.length,0);assert.equal(f.window.gtag,undefined);assert.ok(f.messages.every(item=>item.value.type==='unconfigured'));
+  }
+  const legacy=fixture({veteranResumesMeasurementId:veteranResumesMeasurementId??''});legacy.send(config);assert.equal(legacy.scripts.length,1);assert.ok(legacy.scripts[0].src.endsWith(MEASUREMENT_ID));
+ }
+ const standalone=fixture({measurementId:''});standalone.send(config,'https://veteranresumes.com');assert.ok(standalone.scripts[0].src.endsWith(VETERAN_RESUMES_MEASUREMENT_ID));
+});
+
+test('an initialized bridge cannot switch properties through later messages or another allowed origin',()=>{
+ const f=fixture(),origin='https://veteranresumes.com';f.send({type:'hello'},origin);f.send(config,origin);f.scripts[0].onload();
+ f.send({type:'hello'});f.send(config);f.send({type:'stop'});assert.equal(f.window['ga-disable-'+VETERAN_RESUMES_MEASUREMENT_ID],undefined);
+ f.send({type:'event',name:'page_view',screen:'home',session_id:config.session_id,params:{}},origin);
+ const entries=f.window.dataLayer.map(v=>Array.from(v));assert.equal(f.scripts.length,1);assert.equal(entries.filter(v=>v[0]==='config').length,1);assert.equal(entries.find(v=>v[0]==='event')[2].send_to,VETERAN_RESUMES_MEASUREMENT_ID);
+ f.send({type:'stop'},origin);assert.equal(f.window['ga-disable-'+VETERAN_RESUMES_MEASUREMENT_ID],true);assert.equal(f.window['ga-disable-'+MEASUREMENT_ID],undefined);
 });
