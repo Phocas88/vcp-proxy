@@ -1,0 +1,41 @@
+{
+  "synthetic": true,
+  "providerMode": "Deliberately controlled provider fixtures; not live AI output",
+  "frontCommit": "1a5f90405f84f821361a33ccde0ab6c42cfd9a53",
+  "backCommit": "f276e4f906f188a3791b6274f4aba866d1474c42",
+  "posting": "Fleet Coordinator\nDispatch vehicles.\nTrain drivers.\nRecord vehicle status in GCSS-Army.\nPrepare weekly vehicle availability reports.\nCurrent civilian CDL required.",
+  "reportQuestion": "Did you prepare or export reports? What did you track, and who used it?",
+  "reportAnswer": "I exported vehicle-status data from GCSS-Army and prepared a weekly availability report for the dispatch team.",
+  "applicants": [
+    {
+      "id": "synthetic-88m-a",
+      "name": "Applicant A",
+      "email": "applicant-a@example.com",
+      "branch": "army",
+      "code": "88M",
+      "rank": "",
+      "skillLevel": "",
+      "qualifiers": [],
+      "duties": ["Drove convoy vehicles.", "Performed vehicle inspections before and after missions."],
+      "additionalDuties": [],
+      "systems": [],
+      "expectedCareers": ["vcp-freight-truck-driver"],
+      "resume": "APPLICANT A\napplicant-a@example.com\nMILITARY EXPERIENCE\nArmy | MOS 88M\nDrove convoy vehicles.\nPerformed vehicle inspections before and after missions."
+    },
+    {
+      "id": "synthetic-88m-b",
+      "name": "Applicant B",
+      "email": "applicant-b@example.com",
+      "branch": "army",
+      "code": "88M",
+      "rank": "",
+      "skillLevel": "",
+      "qualifiers": [],
+      "duties": ["Dispatched vehicles.", "Trained drivers.", "Recorded vehicle status in GCSS-Army."],
+      "additionalDuties": [],
+      "systems": ["GCSS-Army"],
+      "expectedCareers": ["vcp-transport-dispatch-coordinator", "vcp-fleet-operations-coordinator", "vcp-employee-training-specialist"],
+      "resume": "APPLICANT B\napplicant-b@example.com\nMILITARY EXPERIENCE\nArmy | MOS 88M\nDispatched vehicles.\nTrained drivers.\nRecorded vehicle status in GCSS-Army."
+    }
+  ]
+}

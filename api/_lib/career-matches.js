@@ -4,7 +4,8 @@ const catalog=require('./career-catalog.json');
 const previousIds=require('./previous-career-ids.json');
 const occupations=new Map(catalog.occupations.map(item=>[item.code,item]));
 const {evidenceReader,evidencePassages}=require('./career-evidence');
-const MATCHING_VERSION='whole-background-v5';
+const {isConcreteEvidence,careerEvidenceSupports,unsupportedFactualClaims,factualWritingGuidance}=require('./confirmed-facts');
+const MATCHING_VERSION='whole-background-v6-confirmed-facts';
 const careerInput=input=>({resume:input.resume,additionalDetails:input.additionalDetails||''});
 const str={type:'string'};
 const matchSchema={type:'object',additionalProperties:false,properties:{code:{type:'string',enum:[...occupations.keys()]},connection:{type:'string',enum:['Experience connection','Transferable skills','Longer-term option']},evidence:str,reason:str,checkNext:str},required:['code','connection','evidence','reason','checkNext']};
@@ -16,6 +17,7 @@ function normalizeMatches(value,input){
  for(const item of (Array.isArray(value)?value:[]).slice(0,96)){
   if(!item)continue;const code=previousIds[item.code]||item.code,evidence=readEvidence(item.evidence);
   if(!occupations.has(code)||seen.has(code)||evidence.length<8||!['Experience connection','Transferable skills','Longer-term option'].includes(item.connection)||!text(item.reason,1000)||!text(item.checkNext,1000))continue;
+  if(!careerEvidenceSupports(code,evidence,item.connection,source)||unsupportedFactualClaims(item.reason,source,{allowBridges:true}).length)continue;
   seen.add(code);matches.push({code,connection:item.connection,evidence,reason:text(item.reason,1000),checkNext:text(item.checkNext,1000)});if(matches.length===24)break;
  }
  return matches;
@@ -23,6 +25,7 @@ function normalizeMatches(value,input){
 const fail=(status,message)=>Object.assign(new Error(message),{status,public:true});
 async function generatePass(input,prompt,deadline,passages,existingCodes=[]){
  const groundedSchema={...schema,properties:{matches:{...schema.properties.matches,items:{...matchSchema,properties:{...matchSchema.properties,code:{type:'string',enum:[...occupations.keys()].filter(code=>!existingCodes.includes(code))},evidence:{type:'string',enum:passages}}}}}};
+ prompt+=' '+factualWritingGuidance;
  prompt+=' For evidence, choose the most relevant exact entry from evidencePassages. Each is copied from the original resume or verified details. Explain the connection using that passage; never rewrite it.';
  let data;const content=JSON.stringify({...careerInput(input),evidencePassages:passages});
  if(process.env.OPENAI_API_KEY){
@@ -36,7 +39,7 @@ async function generatePass(input,prompt,deadline,passages,existingCodes=[]){
 }
 
 async function generateMatches(value){
- const input=careerInput(value),deadline=Date.now()+110000,passages=evidencePassages(input.resume+'\n'+input.additionalDetails);
+ const input=careerInput(value),deadline=Date.now()+110000,passages=evidencePassages(input.resume+'\n'+input.additionalDetails).filter(p=>isConcreteEvidence(p,input.resume+'\n'+input.additionalDetails));
  if(!passages.length)return [];
  const first=await generatePass(input,instructions,deadline,passages);
  let matches=normalizeMatches(first,input);
