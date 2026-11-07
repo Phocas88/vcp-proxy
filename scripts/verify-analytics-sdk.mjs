@@ -18,6 +18,30 @@ const targets=[
 assert.ok(VETERAN_RESUMES_MEASUREMENT_ID,'Dedicated Veteran Resumes Measurement ID is required for release');
 assert.notEqual(MEASUREMENT_ID,VETERAN_RESUMES_MEASUREMENT_ID,'The two sites must use different destinations');
 const parentPage=target=>`<!doctype html><html><head><title>PRIVATE_PARENT_TITLE</title></head><body><form><input value="PRIVATE_EMAIL"><textarea>PRIVATE_RESUME_AND_VA_ENTRY</textarea></form><a href="https://profiles.veterancareerpath.com/veteran/PRIVATE_CV">PRIVATE_FILENAME.pdf</a><iframe id="bridge" hidden sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" src="https://vcp-proxy.vercel.app/"></iframe><script>addEventListener('message',event=>{if(event.origin!=='https://vcp-proxy.vercel.app'||event.data.type!=='ready')return;const target=document.getElementById('bridge').contentWindow;target.postMessage({protocol:${JSON.stringify(VERSION)},type:'configure',client_id:${JSON.stringify(cid)},session_id:${JSON.stringify(sid)},source:'linkedin',screen:${JSON.stringify(target.screen)}},'https://vcp-proxy.vercel.app');for(const name of ${JSON.stringify(['page_view',target.event])})target.postMessage({protocol:${JSON.stringify(VERSION)},type:'event',name,screen:${JSON.stringify(target.screen)},session_id:${JSON.stringify(sid)},engagement_time_msec:1500,params:{kind:'new',action:'example',email:'PRIVATE_EMAIL',resume:'PRIVATE_RESUME',filename:'PRIVATE_FILENAME',page_location:'https://example.com/PRIVATE_URL'}},'https://vcp-proxy.vercel.app');});document.getElementById('bridge').addEventListener('load',()=>document.getElementById('bridge').contentWindow.postMessage({protocol:${JSON.stringify(VERSION)},type:'hello'},'https://vcp-proxy.vercel.app'));</script></body></html>`;
+async function diagnoseTag(browser){
+ for(const probe of [
+  {name:'new-id-standard',origin:'https://veteranresumes.com',id:VETERAN_RESUMES_MEASUREMENT_ID,direct:true},
+  {name:'new-id-legacy-parent',origin:'https://veterancareerpath.com',id:VETERAN_RESUMES_MEASUREMENT_ID},
+  {name:'legacy-id-standalone-parent',origin:'https://veteranresumes.com',id:MEASUREMENT_ID}
+ ]){
+  const context=await browser.newContext(),page=await context.newPage(),requests=[],errors=[];
+  const fixture={origin:probe.origin,screen:'home',event:'vcp_resume_review_complete'};
+  const bridge=renderAnalyticsBridge({measurementId:probe.id,veteranResumesMeasurementId:probe.id});
+  const direct=`<!doctype html><script async src="https://www.googletagmanager.com/gtag/js?id=${probe.id}"></script><script>window.dataLayer=[];function gtag(){dataLayer.push(arguments);}gtag('consent','default',{analytics_storage:'granted',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});gtag('js',new Date());gtag('config',${JSON.stringify(probe.id)},{page_location:'https://veteranresumes.com/',allow_google_signals:false});gtag('event','vcp_resume_review_complete',{send_to:${JSON.stringify(probe.id)}});</script>`;
+  page.on('pageerror',error=>errors.push(error.message.slice(0,200)));
+  await context.route('**/*',async route=>{
+   const url=new URL(route.request().url());
+   if(url.origin===probe.origin)return route.fulfill({contentType:'text/html',body:probe.direct?direct:parentPage(fixture)});
+   if(url.hostname==='vcp-proxy.vercel.app'&&url.pathname==='/api/resume-activity')return route.fulfill({status:204,body:''});
+   if(url.hostname==='vcp-proxy.vercel.app')return route.fulfill({contentType:'text/html',headers:{'Content-Security-Policy':bridge.csp,'Referrer-Policy':'no-referrer'},body:bridge.html});
+   requests.push(url.origin+url.pathname);
+   if(url.hostname==='www.googletagmanager.com')return route.continue();
+   return route.abort();
+  });
+  await page.goto(probe.origin+'/');await page.waitForTimeout(6000);
+  console.log('ANALYTICS_CONTROL_PROBE '+JSON.stringify({name:probe.name,requests,errors}));await context.close();
+ }
+}
 let browser;
 try{
  browser=await chromium.launch({channel:'chromium'});
@@ -37,7 +61,7 @@ try{
  });
  await page.goto(target.root+'?build=PRIVATE_BUILD&email=PRIVATE_QUERY_EMAIL');
  const deadline=Date.now()+60000;while(Date.now()<deadline&&!hits.some(hit=>(hit.url+' '+hit.body).includes(target.event)))await new Promise(resolve=>setTimeout(resolve,250));
- if(!hits.length)console.log('ANALYTICS_TAG_DIAGNOSTICS '+JSON.stringify({site:target.site,...diagnostics}));
+ if(!hits.length){console.log('ANALYTICS_TAG_DIAGNOSTICS '+JSON.stringify({site:target.site,...diagnostics}));await diagnoseTag(browser);}
  assert.ok(hits.length,'The live Google SDK should attempt a measurement request for '+target.site);assert.ok(hits.some(hit=>(hit.url+' '+hit.body).includes(target.event)),'The SDK should serialize a permitted event for '+target.site);
  await page.waitForTimeout(1600);assert.ok(activity.length,'Consented activity should reach the aggregate transport');assert.ok(!JSON.stringify(activity).includes(cid)&&!JSON.stringify(activity).includes(sid)&&!JSON.stringify(activity).includes('PRIVATE_'),'Activity transport excludes identifiers and private fields');
  assert.ok(!JSON.stringify(external).includes('PRIVATE_'),'No parent URL, title, field, filename or extra event property may reach Google.');
