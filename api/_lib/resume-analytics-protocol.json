@@ -59,9 +59,20 @@
         "resume"
       ]
     },
-    "vcp_resume_active": {}
+    "vcp_resume_active": {},
+    "vcp_resume_website_action": {
+      "action": [
+        "start_resume",
+        "upload_resume",
+        "open_app",
+        "cover_letter",
+        "example",
+        "install_app"
+      ]
+    }
   },
   "screens": {
+    "website": "Public website",
     "home": "Home",
     "resumes": "My resumes",
     "resume_start": "Choose how to start",
