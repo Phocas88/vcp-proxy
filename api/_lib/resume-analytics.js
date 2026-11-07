@@ -13,7 +13,7 @@ function collector(protocol,measurementId,version,parents){
  const available=typeof measurementId==='string'&&/^G-[A-Z0-9]{6,20}$/.test(measurementId);
  let ownerOrigin=null,configured=false,stopped=false,loaded=false,pending=[],currentScreen='home',identity=null,source='direct',activity=[],activityTimer=null;
  const safeScreen=value=>typeof value==='string'&&Object.prototype.hasOwnProperty.call(protocol.screens,value);
- const page=screen=>(['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app'].includes(ownerOrigin)?'https://veteranresumes.com/':'https://veterancareerpath.com/resumereview/')+'screen/'+screen;
+ const page=screen=>{const root=['https://veteranresumes.com','https://www.veteranresumes.com','https://veteran-resumes.vercel.app'].includes(ownerOrigin)?'https://veteranresumes.com/':'https://veterancareerpath.com/resumereview/';return screen==='website'?root:root+'screen/'+screen;};
  const post=type=>{if(ownerOrigin)parent.postMessage({protocol:version,type},ownerOrigin);};
  const clean=(name,params)=>{
   if(typeof name!=='string'||!Object.prototype.hasOwnProperty.call(protocol.events,name)||!params||typeof params!=='object'||Array.isArray(params))return null;

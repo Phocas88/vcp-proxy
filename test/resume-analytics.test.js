@@ -48,3 +48,10 @@ test('new website telemetry keeps consent and sanitizes locations to the owned a
  }
  const f=fixture();for(const origin of ['https://veteranresumes.com.evil.example','https://evil.veteranresumes.com'])f.send(config,origin);assert.equal(f.scripts.length,0);
 });
+
+test('public website views and calls to action are distinct from app activity and never include visitor content',()=>{
+ const f=fixture(),origin='https://veteranresumes.com';f.send({...config,screen:'website'},origin);f.scripts[0].onload();
+ const settings=f.window.dataLayer.map(v=>Array.from(v)).find(v=>v[0]==='config')[2];assert.equal(settings.page_location,origin+'/');
+ f.send({type:'event',name:'vcp_resume_website_action',screen:'website',session_id:config.session_id,params:{action:'upload_resume',email:'PRIVATE_EMAIL',url:'PRIVATE_QUERY'}},origin);
+ const event=f.window.dataLayer.map(v=>Array.from(v)).find(v=>v[0]==='event');assert.equal(event[1],'vcp_resume_website_action');assert.equal(event[2].action,'upload_resume');assert.equal(event[2].page_location,origin+'/');assert.doesNotMatch(JSON.stringify(event),/PRIVATE_/);assert.equal(f.parentReads(),0);
+});
