@@ -31,8 +31,10 @@ const diagnostic=(code,validationDetails)=>Object.assign(new Error('Resume build
 function safeValidationDetails(value){
  if(!value||typeof value!=='object')return null;
  const unsupportedNumbers=Array.isArray(value.unsupportedNumbers)?value.unsupportedNumbers.filter(x=>typeof x==='string'&&x.length<=40&&/^\d+(?:[.,]\d+)*(?:\s*%|[ \t]*[KMB]\b)?$/iu.test(x)).slice(0,8).map(x=>x.replace(/\s+/gu,' ')):[];
- const reasons=[...(value.empty===true?['empty_rewrite']:[]),...(value.overLength===true?['length_limit']:[]),...(unsupportedNumbers.length?['unsupported_numbers']:[])];
- return reasons.length?{reasons,unsupportedNumbers,...(Number.isInteger(value.characters)&&value.characters>=0?{characters:value.characters}:{}),characterLimit:20000}:null;
+ const allowedClaimTypes=new Set(['unconfirmed_reporting','unconfirmed_system_implementation','unconfirmed_civilian_license','unconfirmed_people_management']);
+ const unsupportedClaimTypes=[...new Set((Array.isArray(value.unsupportedClaims)?value.unsupportedClaims:[]).map(item=>item?.kind).filter(kind=>allowedClaimTypes.has(kind)))];
+ const reasons=[...(unsupportedClaimTypes.length?['unsupported_claims']:[]),...(value.empty===true?['empty_rewrite']:[]),...(value.overLength===true?['length_limit']:[]),...(unsupportedNumbers.length?['unsupported_numbers']:[])];
+ return reasons.length?{reasons,unsupportedNumbers,...(unsupportedClaimTypes.length?{unsupportedClaimTypes}:{}),...(Number.isInteger(value.characters)&&value.characters>=0?{characters:value.characters}:{}),characterLimit:20000}:null;
 }
 function reference(db,uid,id) { return db.collection('_privateResumeProgramUsers').doc(uid).collection('builds').doc(id); }
 function checkPayment(s,uid,id,sessionId) {
@@ -226,7 +228,7 @@ function createProgramHandler(deps={}) {
    // in that owner's private recovery record. Never send the rejected draft or
    // log its content, even when generation fails repeatedly.
    const validationDetails=errorCode==='AI_REWRITE_WITHHELD'?safeValidationDetails(e.validationDetails):null;
-   const reason=validationDetails?.unsupportedNumbers.length?'The AI rewrite added or changed numeric details ('+validationDetails.unsupportedNumbers.join(', ')+'), so it was not applied.':validationDetails?.reasons.includes('length_limit')?'The AI rewrite exceeded the 20,000-character limit, so it was not applied.':validationDetails?.reasons.includes('empty_rewrite')?'The AI returned no complete revised resume.':message;
+   const reason=validationDetails?.unsupportedNumbers.length?'The AI rewrite added or changed numeric details ('+validationDetails.unsupportedNumbers.join(', ')+'), so it was not applied.':validationDetails?.reasons.includes('length_limit')?'The AI rewrite exceeded the 20,000-character limit, so it was not applied.':validationDetails?.reasons.includes('empty_rewrite')?'The AI returned no complete revised resume.':validationDetails?.reasons.includes('unsupported_claims')?'The AI draft added duties or credentials you did not confirm, so it was not applied.':message;
    const status=e.public&&e.status<500?e.status:503;
    const body={error:e.public&&e.status<500?e.message:reason+' Your checkout remains available in purchase history; no second payment is needed. Support code: '+errorCode+'.',errorCode,...(validationDetails?{validationDetails}: {})};
    if(lease&&ref){try{await (deps.db||require('./firebase-admin').getDb()).runTransaction(async tx=>{const s=await tx.get(ref);if(s.data()?.lease===lease)tx.update(ref,{status:s.data().result?'complete':'paid',lease:null,leaseUntil:0,lastError:{...body,status},updatedAt:now()});});}catch{/* An expired execution lease is recoverable. */}}
