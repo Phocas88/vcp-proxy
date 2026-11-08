@@ -58,6 +58,14 @@ function clarificationInput(data,answers){
   seen.add(item.id);let prompt;
   const match=/^(finding|step)-(\d+)$/.exec(item.id);
   if(match){const index=Number(match[2]);prompt=match[1]==='finding'?data.result?.findings?.[index]?.action:data.result?.nextSteps?.[index];}
+  else if(/^job-(0|[1-9]\d*)$/.test(item.id)){
+   const q=data.careerKit?.qualifications?.[Number(item.id.slice(4))];
+   if(data.careerRevision!==(data.refinementCount||0)||data.careerProofVersion!==require('./confirmed-facts').EVIDENCE_VERSION||!q||q.status==='Supported'||!q.nextAction||item.question!==q.nextAction||item.requirement!==q.requirement)throw fail(400,'Reopen this resume’s job comparison and answer a current question.');
+   // Keep the posting and generated question out of applicant facts. The owned
+   // comparison validates the answer's origin; only the person's answer is used.
+   verified.push({id:item.id,answer:item.answer.trim(),question:q.nextAction,requirement:q.requirement});
+   return 'Applicant’s verified answer: '+item.answer.trim();
+  }
   else if(/^extra-[0-2]$/.test(item.id)&&typeof item.context==='string'&&item.context.trim()&&item.context.length<=160)prompt='Additional verified fact for '+item.context.trim();
   if(!prompt)throw fail(400,'Choose a question from this build’s review or identify the job or section for an additional fact.');
   verified.push({id:item.id,answer:item.answer.trim(),...(item.context?{context:item.context.trim()}: {})});
