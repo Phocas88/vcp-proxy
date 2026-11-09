@@ -130,13 +130,16 @@ function notFound(res) {
 module.exports = async function handler(req, res) {
   const slug = String((req.query && req.query.slug) || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('CDN-Cache-Control', 'no-store');
+  res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
   if (!slug) return notFound(res);
 
   let p;
   try {
     const url = 'https://firestore.googleapis.com/v1/projects/' + PROJECT +
       '/databases/(default)/documents/publicProfiles/' + encodeURIComponent(slug) + '?key=' + API_KEY;
-    const r = await fetch(url);
+    const r = await fetch(url, { cache: 'no-store' });
     if (r.status === 404) return notFound(res);
     if (!r.ok) throw new Error('firestore ' + r.status);
     const doc = await r.json();
@@ -147,7 +150,6 @@ module.exports = async function handler(req, res) {
   }
   if (!p || p.published === false) return notFound(res);
   if(p.source==='vcp-resume-program'){
-    res.setHeader('Cache-Control','public, max-age=30, s-maxage=60, stale-while-revalidate=30');
     return res.status(200).send(require('../_lib/digital-cv-page').renderDigitalCv(p,slug));
   }
 
@@ -227,7 +229,6 @@ module.exports = async function handler(req, res) {
 
   body += '</main>' + footer();
 
-  res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=30');
   return res.status(200).send('<!DOCTYPE html><html lang="en"><head>' + head(metaHead) + '</head><body>' + body + '</body></html>');
 };
 
