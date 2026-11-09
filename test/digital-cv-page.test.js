@@ -17,7 +17,7 @@ test('civilian-only and minimal CVs never gain veteran claims, empty cards or un
 });
 test('profile text is escaped, unsafe links are rejected and only the allowlisted public fields render',()=>{
  const html=renderDigitalCv({...fixture,name:'<img src=x onerror=alert(1)>',summary:'<script>alert(2)</script>',contact:{linkedin:'javascript:alert(3)',phone:'555-0100" onclick="alert(4)',email:'example@example.com" onmouseover="alert(5)'},uid:'PRIVATE_OWNER',ssn:'PRIVATE_SSN',medical:'PRIVATE_MEDICAL',military:[{...fixture.military[0],clearance:'PRIVATE_CLEARANCE',bullets:['<svg onload=alert(6)>']}],photo:'https://example.com/private-tracking-image.jpg'},slug);
- assert.match(html,/&lt;script&gt;alert\(2\)&lt;\/script&gt;/);assert.doesNotMatch(html.replace('<img class="cv-brand-mark" src="'+require('../api/_lib/resume-brand.json').logo+'" width="38" height="38" alt="Veteran Career Path logo">',''),/<script|<img|href="javascript:|onmouseover="|onclick="|PRIVATE_OWNER|PRIVATE_SSN|PRIVATE_MEDICAL|PRIVATE_CLEARANCE|private-tracking-image/);
+ assert.match(html,/&lt;script&gt;alert\(2\)&lt;\/script&gt;/);assert.doesNotMatch(html.replace('<img class="cv-brand-mark" src="'+require('../api/_lib/resume-brand.json').logo+'" width="38" height="38" alt="Veteran Resumes logo">',''),/<script|<img|href="javascript:|onmouseover="|onclick="|PRIVATE_OWNER|PRIVATE_SSN|PRIVATE_MEDICAL|PRIVATE_CLEARANCE|private-tracking-image/);
  assert.match(html,/mailto:example%40example.com/);assert.equal(date('2020'),'2020');assert.equal(date('2020-12'),'Dec 2020');assert.equal(date('unconfirmed'),'unconfirmed');
 });
 function encode(value){if(value===null)return {nullValue:null};if(typeof value==='string')return {stringValue:value};if(typeof value==='boolean')return {booleanValue:value};if(Array.isArray(value))return {arrayValue:{values:value.map(encode)}};return {mapValue:{fields:Object.fromEntries(Object.entries(value).map(([key,v])=>[key,encode(v)]))}};}
@@ -86,3 +86,4 @@ test('a system joined to an Operations heading stays alongside every other ERP a
  assert.deepEqual(cvSkillGroups('Customer Service Operations: Scheduling, Telephone support'),[{title:'Customer Service Operations',items:['Scheduling','Telephone support']}]);
  assert.deepEqual(cvSkillGroups('RedPrairie Operations: Inventory control'),[{title:'ERP & WMS systems',items:['RedPrairie']},{title:'Operations',items:['Inventory control']}]);
 });
+
