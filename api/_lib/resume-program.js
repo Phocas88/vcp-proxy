@@ -90,7 +90,7 @@ function createProgramHandler(deps={}) {
   };
   try {
    const origin=req.headers.origin;
-   if(!ORIGINS.has(origin))throw fail(403,'Open the Veteran Career Path resume program to continue.');
+   if(!ORIGINS.has(origin))throw fail(403,'Open Veteran Resumes to continue.');
    if(!String(req.headers['content-type']||'').startsWith('application/json'))throw fail(415,'Send resume text as JSON.');
    if(Buffer.byteLength(JSON.stringify(req.body||{}))>(String(req.body?.action).startsWith('template-')?950000:150000))throw fail(413,'That draft is too large.');
    if(req.body.action==='guest') {
@@ -99,7 +99,7 @@ function createProgramHandler(deps={}) {
     return res.status(result.status).json(result.token ? {token:result.token} : {error:result.error});
    }
    const token=req.headers['x-vcp-firebase-token'];
-   if(typeof token!=='string'||!token)throw fail(401,'Sign in to your free resume-program account. No main-site subscription is required.');
+   if(typeof token!=='string'||!token)throw fail(401,'Sign in to your Veteran Resumes account to continue.');
    let identity;try{identity=await (deps.verifyIdToken||(t=>require('./firebase-admin').getAuth().verifyIdToken(t,true)))(token);}catch{throw fail(401,'Your program session expired. Sign in again.');}
    if(!identity?.uid)throw fail(401,'Sign in again.');
    const uid=identity.uid;const db=deps.db||require('./firebase-admin').getDb();
@@ -140,7 +140,7 @@ function createProgramHandler(deps={}) {
     if(expired||now()-data.createdAt>23*60*60*1000){data=await db.runTransaction(async tx=>{const s=await tx.get(ref);const d=s.data();if(d.status!=='awaiting_payment')throw fail(409,'Build state changed. Open purchase history.');if(d.sessionId===data.sessionId&&d.attempt===data.attempt){const next={...d,attempt:d.attempt+1,sessionId:null,checkoutUrl:null,createdAt:now()};tx.set(ref,next);return next;}return d;});}
     if(deps.checkoutQuota&&!await deps.checkoutQuota(uid))throw fail(429,'Several checkouts have been requested. Wait 15 minutes before opening another; existing paid builds remain available.');
     const base=data.origin+sitePath(data.origin);
-    const body={mode:'payment',allow_promotion_codes:true,client_reference_id:id,metadata:{product:PRODUCT,uid,buildId:id},payment_intent_data:{metadata:{product:PRODUCT,uid,buildId:id}},payment_method_types:['card'],line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:PRICE,product_data:{name:'Veteran Resumes — resume',description:'One AI build and one chosen template. Additional templates $1 each. No subscription.'}}}],success_url:base+'?build='+id+'&checkout=success',cancel_url:base+'?build='+id+'&checkout=canceled'};
+    const body={mode:'payment',allow_promotion_codes:true,client_reference_id:id,metadata:{product:PRODUCT,uid,buildId:id},payment_intent_data:{metadata:{product:PRODUCT,uid,buildId:id}},payment_method_types:['card'],line_items:[{quantity:1,price_data:{currency:'usd',unit_amount:PRICE,product_data:{name:'Veteran Resumes — resume',description:'Your resume and one selected design, with PDF, Word and text downloads. Additional designs are $1 each.'}}}],success_url:base+'?build='+id+'&checkout=success',cancel_url:base+'?build='+id+'&checkout=canceled'};
     const session=await stripe.stripePost('/v1/checkout/sessions',body,key,AbortSignal.timeout(12000),'resume-program-promo-v1-'+id+'-'+data.attempt);
     if(!session.id||!/^https:\/\/checkout\.stripe\.com\//.test(session.url||''))throw fail(502,'Stripe checkout could not open. You have not been charged by this request.');
     await ref.update({sessionId:session.id,checkoutUrl:session.url,updatedAt:now()});
@@ -202,7 +202,7 @@ function createProgramHandler(deps={}) {
    let clarification;
    if(refining){
     if(!data.result)throw fail(409,'Complete the initial review before answering its questions.');
-    if((data.refinementCount||0)>=1)throw fail(409,'Your included AI update has been used. Manual edits and downloads remain included. A new AI build costs $1.99.','CLARIFICATION_UPDATE_USED');
+    if((data.refinementCount||0)>=1)throw fail(409,'Your included AI update has been used. Manual edits and downloads remain included. You can create a new resume for $1.99.','CLARIFICATION_UPDATE_USED');
     clarification=clarificationInput(data,req.body.answers);
    }
    if(!key||!data.sessionId)throw fail(402,'Purchase this build for $1.99 first. No main-site subscription is required.');
