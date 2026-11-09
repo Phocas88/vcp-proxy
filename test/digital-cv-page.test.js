@@ -23,7 +23,7 @@ test('profile text is escaped, unsafe links are rejected and only the allowliste
 function encode(value){if(value===null)return {nullValue:null};if(typeof value==='string')return {stringValue:value};if(typeof value==='boolean')return {booleanValue:value};if(Array.isArray(value))return {arrayValue:{values:value.map(encode)}};return {mapValue:{fields:Object.fromEntries(Object.entries(value).map(([key,v])=>[key,encode(v)]))}};}
 async function request(profile,status=200){const previous=global.fetch;global.fetch=async()=>({ok:status===200,status,json:async()=>({fields:encode(profile).mapValue.fields})});const headers={};const res={setHeader(key,value){headers[key]=value;},status(value){this.code=value;return this;},send(value){this.body=value;return this;}};try{await handler({query:{slug},headers:{host:'profiles.veterancareerpath.com'}},res);return {...res,headers};}finally{global.fetch=previous;}}
 test('the live route uses the new design for app CVs while preserving legacy website profiles and unpublished behavior',async()=>{
- const app=await request(fixture);assert.equal(app.code,200);assert.match(app.body,/data-cv-layout="desktop-20261030-sections"/);assert.match(app.headers['Cache-Control'],/s-maxage=60/);
+ const app=await request(fixture);assert.equal(app.code,200);assert.match(app.body,/data-cv-layout="desktop-20261030-sections"/);assert.equal(app.headers['Cache-Control'],'no-store');
  const legacy=await request({...fixture,source:'legacy-website'});assert.equal(legacy.code,200);assert.match(legacy.body,/class="hero"/);assert.doesNotMatch(legacy.body,/data-cv-layout/);
  assert.equal((await request({...fixture,published:false})).code,404);assert.equal((await request({},404)).code,404);
 });
