@@ -2,6 +2,10 @@ name: Verify resume career matching
 on:
   pull_request:
     paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'api/_lib/firebase-admin.js'
+      - 'test/firebase-sdk.test.js'
       - 'api/_lib/career-matches.js'
       - 'api/_lib/career-evidence.js'
       - 'api/_lib/confirmed-facts.js'
@@ -26,6 +30,10 @@ on:
   push:
     branches: [main]
     paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'api/_lib/firebase-admin.js'
+      - 'test/firebase-sdk.test.js'
       - 'api/_lib/career-matches.js'
       - 'api/_lib/career-evidence.js'
       - 'api/_lib/confirmed-facts.js'

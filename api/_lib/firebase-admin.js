@@ -4,6 +4,9 @@
 // Vercel environment. Accepts either raw JSON or base64-encoded JSON for convenience.
 'use strict';
 const admin = require('firebase-admin');
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
+const { getAuth: firebaseAuth } = require('firebase-admin/auth');
 
 let app = null;
 
@@ -35,23 +38,24 @@ function loadCredentials() {
 
 function getApp() {
   if (app) return app;
-  if (admin.apps.length) { app = admin.apps[0]; return app; }
+  if (getApps().length) { app = getApps()[0]; return app; }
   const creds = loadCredentials();
-  app = admin.initializeApp({
-    credential: admin.credential.cert(creds),
+  app = initializeApp({
+    credential: cert(creds),
     projectId: creds.project_id || 'veteran-career-builder',
   });
   return app;
 }
 
-function getDb() { getApp(); return admin.firestore(); }
-function getAuth() { getApp(); return admin.auth(); }
+function getDb() { return getFirestore(getApp()); }
+function getAuth() { return firebaseAuth(getApp()); }
 
 module.exports = {
   admin,
   getApp,
   getDb,
   getAuth,
-  FieldValue: admin.firestore.FieldValue,
-  Timestamp: admin.firestore.Timestamp,
+  FieldValue,
+  Timestamp,
 };
+
