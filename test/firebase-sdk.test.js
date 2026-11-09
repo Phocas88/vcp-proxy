@@ -2,10 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { initializeApp, deleteApp } = require('firebase-admin/app');
-const { mkdtemp, writeFile, access } = require('node:fs/promises');
-const { tmpdir } = require('node:os');
-const { join } = require('node:path');
-const { rimraf } = require('rimraf');
+const { v4: uuidv4, v5: uuidv5 } = require('uuid');
 const bootstrap = require('../api/_lib/firebase-admin');
 
 test('the installed Firebase SDK loads without credentials and exposes supported Firestore helpers', () => {
@@ -13,15 +10,9 @@ test('the installed Firebase SDK loads without credentials and exposes supported
   assert.equal(bootstrap.Timestamp.fromMillis(1234).toMillis(), 1234);
 });
 
-test('the patched cleanup dependency retains the async API used by Google clients', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'vcp-sdk-cleanup-'));
-  try {
-    await writeFile(join(directory, 'example-cache.txt'), 'fictional cache entry');
-    await rimraf(directory);
-    await assert.rejects(access(directory), { code: 'ENOENT' });
-  } finally {
-    await rimraf(directory);
-  }
+test('the patched UUID dependency preserves CommonJS identifiers and rejects undersized buffers', () => {
+  assert.match(uuidv4(), /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
+  assert.throws(() => uuidv5('fictional-cache-key', uuidv5.URL, Buffer.alloc(1)), RangeError);
 });
 
 test('existing Firebase applications are reused by the auth and database bootstrap without a network request', async () => {
